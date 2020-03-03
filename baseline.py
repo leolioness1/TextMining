@@ -6,9 +6,33 @@ import nltk
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import os
+root = 'C:\\Users\\Leonor.furtado\\PycharmProjects\\TextMining\Corpora\\train'
 
+file_name_and_text={}
+for file in os.listdir(root):
+    name = os.path.splitext(file)[0]
+    print('{}/{}'.format(root,name))
+    for file in os.listdir('{}/{}'.format(root,name)):
+        if file.endswith(".txt"):
+            try:
+                with open(os.path.join(root, name,file), "r", encoding='utf-8') as target_file:
+                    file_name_and_text['{}/{}'.format(name,file)] = target_file.read()
+            except Exception as e:
+                print("{} generated an error: \n {}".format(os.path.join(root, name,file)),e)
+
+file_data = (pd.DataFrame.from_dict(file_name_and_text, orient='index')
+             .reset_index().rename(index = str, columns = {'index': 'author', 0: 'text'}))
+
+# new data frame with split value columns
+new = file_data["author"].str.split("/", n=1, expand=True)
+file_data["author"] = new[0]
+file_data["Title"] = new[1]
+
+
+#Random code
 # Create a Dictionary from the articles: dictionary
-dictionary = Dictionary(articles)
+dictionary = Dictionary()
 
 # Select the id for "computer": computer_id
 computer_id = dictionary.token2id.get("computer")
