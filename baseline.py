@@ -7,8 +7,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import os
-root = 'C:\\Users\\Leonor.furtado\\PycharmProjects\\TextMining\Corpora\\train'
+import re
+from bs4 import BeautifulSoup
+from nltk.corpus import stopwords
+from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+from nltk.corpus import wordnet
+from nltk.stem import SnowballStemmer
+import string
 
+# importing and consolidating the data
+
+root = 'C:\\Users\\Leonor.furtado\\PycharmProjects\\TextMining\Corpora\\train'
 file_name_and_text={}
 for file in os.listdir(root):
     name = os.path.splitext(file)[0]
@@ -29,7 +39,11 @@ new = file_data["author"].str.split("/", n=1, expand=True)
 file_data["author"] = new[0]
 file_data["Title"] = new[1]
 
+# Language preprocessing
 
+stop = set(stopwords.words('portuguese'))
+exclude = set(string.punctuation)
+lemma = WordNetLemmatizer()
 def clean(text_list, lemmatize, stemmer):
     """
     Function that a receives a list of strings and preprocesses it.
@@ -39,7 +53,7 @@ def clean(text_list, lemmatize, stemmer):
     :param stemmer: Tag to apply the stemmer if True.
     """
     updates = []
-    for j in tqdm(range(len(text_list))):
+    for j in range(len(text_list)):
         
         text = text_list[j]
         
@@ -50,7 +64,7 @@ def clean(text_list, lemmatize, stemmer):
         text = re.sub("[^a-zA-Z]", ' ', text)
         
         #REMOVE TAGS
-        text = BeautifulSoup(text).get_text()
+        text = BeautifulSoup(text,features="html.parser").get_text()
         
         if lemmatize:
             text = " ".join(lemma.lemmatize(word) for word in text.split())
@@ -75,7 +89,7 @@ update_df(file_data, updates)
 dictionary = Dictionary()
 
 # Select the id for "computer": computer_id
-computer_id = dictionary.token2id.get("computer")
+computer_id = file_name_and_text.token2id.get("computer")
 
 # Use computer_id with the dictionary to print the word
 print(dictionary.get(computer_id))
