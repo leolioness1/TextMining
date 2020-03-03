@@ -30,6 +30,46 @@ file_data["author"] = new[0]
 file_data["Title"] = new[1]
 
 
+def clean(text_list, lemmatize, stemmer):
+    """
+    Function that a receives a list of strings and preprocesses it.
+    
+    :param text_list: List of strings.
+    :param lemmatize: Tag to apply lemmatization if True.
+    :param stemmer: Tag to apply the stemmer if True.
+    """
+    updates = []
+    for j in tqdm(range(len(text_list))):
+        
+        text = text_list[j]
+        
+        #LOWERCASE TEXT
+        text = text.lower()
+        
+        #REMOVE NUMERICAL DATA AND PUNCTUATION
+        text = re.sub("[^a-zA-Z]", ' ', text)
+        
+        #REMOVE TAGS
+        text = BeautifulSoup(text).get_text()
+        
+        if lemmatize:
+            text = " ".join(lemma.lemmatize(word) for word in text.split())
+        
+        if stemmer:
+            text = " ".join(stemmer.stem(word) for word in text.split())
+        
+        updates.append(text)
+        
+    return updates
+
+def update_df(dataframe, list_updated):
+    dataframe.update(pd.DataFrame({"Text": list_updated}))
+    
+updates = clean(file_data["text"], lemmatize = True, stemmer = False)
+
+update_df(file_data, updates)
+
+
 #Random code
 # Create a Dictionary from the articles: dictionary
 dictionary = Dictionary()
