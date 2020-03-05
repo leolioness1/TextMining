@@ -1,4 +1,4 @@
-
+# Import the necessary modules
 from nltk.corpus import stopwords
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
@@ -15,6 +15,11 @@ import pandas as pd
 import numpy as np
 import os
 import re
+from sklearn import metrics
+from sklearn.naive_bayes import MultinomialNB
+from gensim.models.tfidfmodel import TfidfModel
+import spacy
+
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -61,7 +66,7 @@ def clean(text_list, lemmatize, stemmer):
         text = text.lower()
         
         #REMOVE NUMERICAL DATA AND PUNCTUATION
-        text = re.sub("[^a-zA-Z-ÁÀÂâáàãçÉÈÊéèêôóòçÇ]", ' ', text)
+        text = re.sub("[^a-zA-Z-ÁÀÂÃâáàãçÉÈÊéèêúùÚÙÕÓÒÔôõóòÍÌíìçÇ]", ' ', text)
         
         #REMOVE TAGS
         text = BeautifulSoup(text).get_text()
@@ -82,9 +87,6 @@ def update_df(dataframe, list_updated):
 updates = clean(file_data["text"], lemmatize = True, stemmer = False)
 
 update_df(file_data, updates)
-
-
-
 
 #Random code
 # Create a Dictionary from the articles: dictionary
@@ -124,8 +126,7 @@ sorted_word_count = sorted(total_word_count.items(), key=lambda w: w[1], reverse
 for word_id, word_count in sorted_word_count[:5]:
     print(dictionary.get(word_id), word_count)
 
-# Import TfidfModel
-from gensim.models.tfidfmodel import TfidfModel
+
 # Create a new TfidfModel using the corpus: tfidf
 tfidf = TfidfModel(corpus)
 
@@ -180,8 +181,6 @@ plt.pie(values, labels=labels, autopct='%1.1f%%', startangle=140)
 # Display the chart
 plt.show()
 
-# Import spacy
-import spacy
 
 # Instantiate the English model: nlp
 nlp = spacy.load('en', tagger=False, parser=False, matcher=False)
@@ -292,9 +291,6 @@ print(difference)
 print(count_df.equals(tfidf_df))
 
 
-# Import the necessary modules
-from sklearn import metrics
-from sklearn.naive_bayes import MultinomialNB
 # Instantiate a Multinomial Naive Bayes classifier: nb_classifier
 nb_classifier = MultinomialNB()
 
