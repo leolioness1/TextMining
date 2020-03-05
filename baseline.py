@@ -119,10 +119,9 @@ def get_top_n_grams(corpus, top_k, n):
 
     return top_df
 
-top_df = get_top_n_grams(file_data, top_k=20, n=1)
+top_df = get_top_n_grams(cleaned_documents, top_k=20, n=2)
 
 top_df.head(10)
-
 
 
 #Random code
