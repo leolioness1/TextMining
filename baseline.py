@@ -124,6 +124,7 @@ top_df = get_top_n_grams(cleaned_documents, top_k=20, n=2)
 top_df.head(10)
 
 
+
 #Random code
 # Create a Dictionary from the articles: dictionary
 dictionary = Dictionary()
