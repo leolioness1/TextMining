@@ -19,6 +19,9 @@ from sklearn import metrics
 from sklearn.naive_bayes import MultinomialNB
 from gensim.models.tfidfmodel import TfidfModel
 import spacy
+from polygot.text import Text
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
 
 
 root = os.getcwd() + '\\Corpora\\train'
@@ -27,6 +30,7 @@ file_name_and_text={}
 for file in os.listdir(root):
     name = os.path.splitext(file)[0]
     print('{}/{}'.format(root,name))
+
     for file in os.listdir('{}/{}'.format(root,name)):
         if file.endswith(".txt"):
             try:
@@ -87,6 +91,7 @@ def update_df(dataframe, list_updated):
 updates = clean(file_data["text"], lemmatize = True, stemmer = False)
 
 update_df(file_data, updates)
+
 
 #Random code
 # Create a Dictionary from the articles: dictionary
@@ -192,8 +197,6 @@ doc = nlp(article)
 for ent in doc.ents:
     print(ent.label_, ent.text)
 
-from polygot.text import Text
-
 # Create a new text object using Polyglot's Text class: txt
 txt = Text(article)
 
@@ -228,10 +231,6 @@ print(count)
 percentage = count / len(txt.entities)
 print(percentage)
 
-# Import the necessary modules
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.model_selection import train_test_split
-
 # Print the head of df
 print(df.head())
 
@@ -242,7 +241,7 @@ y = df.label
 X_train, X_test, y_train, y_test = train_test_split(df['text'],y, test_size=0.33, random_state=53)
 
 # Initialize a CountVectorizer object: count_vectorizer
-count_vectorizer = CountVectorizer(stop_words="english")
+count_vectorizer = CountVectorizer(stop_words="portuguese")
 
 # Transform the training data using only the 'text' column values: count_train
 count_train = count_vectorizer.fit_transform(X_train)
@@ -257,7 +256,7 @@ print(count_vectorizer.get_feature_names()[:10])
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Initialize a TfidfVectorizer object: tfidf_vectorizer
-tfidf_vectorizer = TfidfVectorizer(stop_words="english", max_df=0.7)
+tfidf_vectorizer = TfidfVectorizer(stop_words="portuguese", max_df=0.7)
 
 # Transform the training data: tfidf_train
 tfidf_train = tfidf_vectorizer.fit_transform(X_train)
