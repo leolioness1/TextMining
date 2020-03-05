@@ -53,7 +53,7 @@ lemma = WordNetLemmatizer()
 stemmer = SnowballStemmer('portuguese')
 
 
-def clean(text_list, lemmatize, stemmer):
+def preprocessing(dataframe):
     """
     Function that a receives a list of strings and preprocesses it.
     
@@ -61,11 +61,9 @@ def clean(text_list, lemmatize, stemmer):
     :param lemmatize: Tag to apply lemmatization if True.
     :param stemmer: Tag to apply the stemmer if True.
     """
-    updates = []
-    for j in range(len(text_list)):
-        
-        text = text_list[j]
-        
+    processed_corpus = []
+    for i in range(len(dataframe)):
+        text = dataframe['text'][i]
         #LOWERCASE TEXT
         text = text.lower()
         
@@ -76,22 +74,20 @@ def clean(text_list, lemmatize, stemmer):
         text = BeautifulSoup(text).get_text()
         text = text.split()
         #REMOVE STOP WORDS
-        if lemmatize:
-            text = [lemma.lemmatize(word) for word in text if not word in stop]
-        
-        if stemmer:
-            text = [stemmer(word) for word in text if not word in stop]
+        text = [lemma.lemmatize(word) for word in text if not word in stop]
+
         text = " ".join(text)
-        updates.append(text)
+        processed_corpus.append(text)
         
-    return updates
+    return processed_corpus
 
-def update_df(dataframe, list_updated):
-    dataframe['text']=list_updated
-    
-updates = clean(file_data["text"], lemmatize = True, stemmer = False)
+cleaned_documents= preprocessing(file_data)
 
-update_df(file_data, updates)
+def update_df(dataframe, cleaned_documents):
+    dataframe['text'] = cleaned_documents
+
+
+update_df(file_data, cleaned_documents)
 
 ############ word count #################
 
