@@ -22,7 +22,7 @@ import spacy
 #from polygot.text import Text
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
-
+from sklearn.feature_extraction.text import TfidfTransformer
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -99,6 +99,32 @@ all_words = ' '.join(file_data['text']).split()
 freq = pd.Series(all_words).value_counts()
 freq[:25]
 
+cv = CountVectorizer(
+    max_df=0.8,
+    max_features=10000,
+    ngram_range=(1,3) # only bigram (2,2)
+)
+
+X = cv.fit_transform(cleaned_documents)
+
+list(cv.vocabulary_.keys())[:10]
+
+def plot_frequencies(top_df):
+    """
+    Function that receives a dataframe from the "get_top_n_grams" function
+    and plots the frequencies in a bar plot.
+    """
+    x_labels = top_df["Ngram"][:30]
+    y_pos = np.arange(len(x_labels))
+    values = top_df["Freq"][:30]
+    plt.bar(y_pos, values, align='center', alpha=0.5)
+    plt.xticks(y_pos, x_labels)
+    plt.ylabel('Frequencies')
+    plt.title('Words')
+    plt.xticks(rotation=90)
+    plt.show()
+
+
 ########## n grams ##################
 
 def get_top_n_grams(corpus, top_k, n):
@@ -122,6 +148,40 @@ def get_top_n_grams(corpus, top_k, n):
 top_df = get_top_n_grams(cleaned_documents, top_k=20, n=2)
 
 top_df.head(10)
+
+plot_frequencies(top_df)
+
+
+# TFIDF
+
+tfidf_vectorizer = TfidfTransformer()
+tfidf_vectorizer.fit(X)
+# get feature names
+feature_names = cv.get_feature_names()
+
+# fetch document for which keywords needs to be extracted
+doc = cleaned_documents[5]  # 532
+
+# generate tf-idf for the given document
+tf_idf_vector = tfidf_vectorizer.transform(cv.transform([doc]))
+
+tf_idf_vector.toarray()
+
+
+def extract_feature_scores(feature_names, document_vector):
+    """
+    Function that creates a dictionary with the TF-IDF score for each feature.
+    :param feature_names: list with all the feature words.
+    :param document_vector: vector containing the extracted features for a specific document
+
+    :return: returns a sorted dictionary "feature":"score".
+    """
+    feature2score = {}
+    for i in range(len(feature_names)):
+        feature2score[feature_names[i]] = document_vector[0][i]
+    return sorted(feature2score.items(), key=lambda kv: kv[1], reverse=True)
+
+extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
 
 
 
