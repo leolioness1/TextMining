@@ -102,24 +102,24 @@ freq[:25]
 ########## n grams ##################
 
 def get_top_n_grams(corpus, top_k, n):
-
+    
     vec = CountVectorizer(ngram_range=(n, n), max_features=2000).fit(corpus)
-
+    
     bag_of_words = vec.transform(corpus)
-
-    sum_words = bag_of_words.sum(axis=0)
-
+    
+    sum_words = bag_of_words.sum(axis=0) 
+    
     words_freq = []
     for word, idx in vec.vocabulary_.items():
         words_freq.append((word, sum_words[0, idx]))
-
+        
     words_freq = sorted(words_freq, key=lambda x: x[1], reverse=True)
     top_df = pd.DataFrame(words_freq[:top_k])
     top_df.columns = ["Ngram", "Freq"]
-
+    
     return top_df
 
-top_df = get_top_n_grams(file_data, top_k=20, n=1)
+top_df = get_top_n_grams(file_data['text'], top_k=20, n=2)
 
 top_df.head(10)
 
