@@ -19,7 +19,7 @@ from sklearn import metrics
 from sklearn.naive_bayes import MultinomialNB
 from gensim.models.tfidfmodel import TfidfModel
 import spacy
-from polygot.text import Text
+#from polygot.text import Text
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 
@@ -74,13 +74,14 @@ def clean(text_list, lemmatize, stemmer):
         
         #REMOVE TAGS
         text = BeautifulSoup(text).get_text()
-        
+        text = text.split()
+        #REMOVE STOP WORDS
         if lemmatize:
-            text = " ".join(lemma.lemmatize(word) for word in text.split())
+            text = [lemma.lemmatize(word) for word in text if not word in stop]
         
         if stemmer:
-            text = " ".join(stemmer.stem(word) for word in text.split())
-        
+            text = [stemmer(word) for word in text if not word in stop]
+        text = " ".join(text)
         updates.append(text)
         
     return updates
