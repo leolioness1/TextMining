@@ -324,29 +324,16 @@ from keras.utils.np_utils import to_categorical
 
 # Get the numerical ids of column label
 numerical_ids = file_data.author.cat.codes
-
 # Print initial shape
 print(numerical_ids.shape)
 
-
 # One-hot encode the indexes
 Y = to_categorical(numerical_ids)
-
 # Check the new shape of the variable
 print(Y.shape)
-
 # Print the first 5 rows
 print(Y[:5])
 
-# Create and fit tokenizer
-tokenizer = Tokenizer()
-tokenizer.fit_on_texts(file_data.text)
-
-
-
-
-# Create training and test sets
-X_train, X_test, y_train, y_test = train_test_split(X,Y_coded, test_size=0.33, random_state=53)
 
 from keras.models import Sequential
 from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
@@ -354,9 +341,9 @@ from keras.callbacks import EarlyStopping
 from keras.layers import Dropout
 
 # The maximum number of words to be used. (most frequent)
-MAX_NB_WORDS = 50000
+MAX_NB_WORDS = 100000
 # Max number of words in each text.
-MAX_SEQUENCE_LENGTH = 1000
+MAX_SEQUENCE_LENGTH = 10000
 # This is fixed.
 EMBEDDING_DIM = 100
 
@@ -371,7 +358,7 @@ X = tokenizer.texts_to_sequences(file_data.text)
 X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
 print('Shape of data tensor:', X.shape)
 Y = pd.get_dummies(file_data['author']).values
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size = 0.5, random_state = 42)
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size = 0.7, random_state = 42)
 
 print(X_train.shape,y_train.shape)
 print(X_test.shape,y_test.shape)
@@ -389,11 +376,8 @@ batch_size = 2
 history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='val_loss', patience=3, min_delta=0.0001)])
 
 
-# Evaluate the model on the new dataset
-loss, acc = model.evaluate(X, Y, batch_size=64)
-
-# Print the loss and accuracy obtained
-print("Loss:\t{0}\nAccuracy:\t{1}".format(loss, acc))
+accr = model.evaluate(X_test,y_test)
+print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(accr[0],accr[1]))
 
 
 # Change text for numerical ids and pad
@@ -408,7 +392,7 @@ X_new = pad_sequences(X_new, maxlen=MAX_SEQUENCE_LENGTH)
 predicted = model.predict(X_new)
 
 # Choose the class with higher probability
-y_pred = np.argmax(predicted, axis=1)
+file_data_test["pred"] = np.argmax(predicted, axis=1)
 
 
 # # Choose the class with higher probability
