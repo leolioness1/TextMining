@@ -358,7 +358,7 @@ X = tokenizer.texts_to_sequences(file_data.text)
 X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
 print('Shape of data tensor:', X.shape)
 Y = pd.get_dummies(file_data['author']).values
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size = 0.7, random_state = 42)
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size = 0.2, random_state = 42)
 
 print(X_train.shape,y_train.shape)
 print(X_test.shape,y_test.shape)
