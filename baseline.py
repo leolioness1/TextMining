@@ -19,10 +19,14 @@ from sklearn import metrics
 from sklearn.naive_bayes import MultinomialNB
 from gensim.models.tfidfmodel import TfidfModel
 import spacy
-#from polygot.text import Text
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+# run this if not installed: python -m spacy download pt_core_news_sm
+import pt_core_news_sm
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -41,11 +45,30 @@ for file in os.listdir(root):
 
 file_data = (pd.DataFrame.from_dict(file_name_and_text, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'author', 0: 'text'}))
-
 # new data frame with split value columns
 new = file_data["author"].str.split("/", n=1, expand=True)
 file_data["author"] = new[0]
 file_data["Title"] = new[1]
+
+root_test = os.getcwd() + '\\Corpora\\test'
+
+file_name_and_text_test={}
+for file in os.listdir(root_test):
+    name = os.path.splitext(file)[0]
+    print('{}/{}'.format(root_test,name))
+
+    for file in os.listdir('{}/{}'.format(root_test,name)):
+        if file.endswith(".txt"):
+            try:
+                with open(os.path.join(root_test, name,file), "r", encoding='utf-8') as target_file:
+                    file_name_and_text_test['{}/{}'.format(name,file)] = target_file.read()
+            except Exception as e:
+                print("{} generated an error: \n {}".format(os.path.join(root_test, name,file)),e)
+
+file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index')
+             .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
+
+
 
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
@@ -82,12 +105,14 @@ def preprocessing(dataframe):
     return processed_corpus
 
 cleaned_documents= preprocessing(file_data)
+cleaned_documents_test=preprocessing(file_data_test)
 
 def update_df(dataframe, cleaned_documents):
     dataframe['text'] = cleaned_documents
 
 
 update_df(file_data, cleaned_documents)
+update_df(file_data_test,cleaned_documents_test)
 
 ############ word count #################
 
@@ -183,105 +208,106 @@ def extract_feature_scores(feature_names, document_vector):
 
 extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
 
+#
+#
+# #Random code
+# # Create a Dictionary from the articles: dictionary
+# dictionary = Dictionary(file_data['text'].to_array())
+#
+# # Select the id for "computer": computer_id
+# computer_id = file_name_and_text.token2id.get("computer")
+#
+# # Use computer_id with the dictionary to print the word
+# print(dictionary.get(computer_id))
+#
+# # Create a MmCorpus: corpus
+# corpus = [dictionary.doc2bow(article) for article in articles]
+#
+# # Print the first 10 word ids with their frequency counts from the fifth document
+# print(corpus[4][:10])
+#
+# # Save the fifth document: doc
+# doc = corpus[4]
+#
+# # Sort the doc for frequency: bow_doc
+# bow_doc = sorted(doc, key=lambda w: w[1], reverse=True)
+#
+# # Print the top 5 words of the document alongside the count
+# for word_id, word_count in bow_doc[:5]:
+#     print(dictionary.get(word_id), word_count)
+#
+# # Create the defaultdict: total_word_count
+# total_word_count = defaultdict(int)
+# for word_id, word_count in itertools.chain.from_iterable(corpus):
+#     total_word_count[word_id] += word_count
+#
+# # Create a sorted list from the defaultdict: sorted_word_count
+# sorted_word_count = sorted(total_word_count.items(), key=lambda w: w[1], reverse=True)
+#
+# # Print the top 5 words across all documents alongside the count
+# for word_id, word_count in sorted_word_count[:5]:
+#     print(dictionary.get(word_id), word_count)
+#
+#
+# # Create a new TfidfModel using the corpus: tfidf
+# tfidf = TfidfModel(corpus)
+#
+# # Calculate the tfidf weights of doc: tfidf_weights
+# tfidf_weights = tfidf[doc]
+#
+# # Print the first five weights
+# print(tfidf_weights[:5])
+#
+# # Sort the weights from highest to lowest: sorted_tfidf_weights
+# sorted_tfidf_weights = sorted(tfidf_weights, key=lambda w: w[1], reverse=True)
+#
+# # Print the top 5 weighted words
+# for term_id, weight in sorted_tfidf_weights[:5]:
+#     print(dictionary.get(term_id), weight)
+#
+# # Tokenize the article into sentences: sentences
+# sentences = nltk.sent_tokenize(article)
+#
+# # Tokenize each sentence into words: token_sentences
+# token_sentences = [nltk.word_tokenize(sent) for sent in sentences]
+#
+# # Tag each tokenized sentence into parts of speech: pos_sentences
+# pos_sentences = [ nltk.pos_tag(sent) for sent in token_sentences]
+#
+# # Create the named entity chunks: chunked_sentences
+# chunked_sentences = nltk.ne_chunk_sents(pos_sentences, binary=True)
+#
+# # Test for stems of the tree with 'NE' tags
+# for sent in chunked_sentences:
+#     for chunk in sent:
+#         if hasattr(chunk, "label") and chunk.label() == "NE":
+#             print(chunk)
+#
+# # Create the defaultdict: ner_categories
+# ner_categories = defaultdict(int)
+# # Create the nested for loop
+# for sent in chunked_sentences:
+#     for chunk in sent:
+#         if hasattr(chunk, 'label'):
+#             ner_categories[chunk.label()] += 1
+#
+# # Create a list from the dictionary keys for the chart labels: labels
+# labels = list(ner_categories.keys())
+#
+# # Create a list of the values: values
+# values = [ner_categories.get(l) for l in labels]
+#
+# # Create the pie chart
+# plt.pie(values, labels=labels, autopct='%1.1f%%', startangle=140)
+#
+# # Display the chart
+# plt.show()
 
 
-#Random code
-# Create a Dictionary from the articles: dictionary
-dictionary = Dictionary()
+# Instantiate the Portuguese model: nlp
+nlp = pt_core_news_sm.load()
 
-# Select the id for "computer": computer_id
-computer_id = file_name_and_text.token2id.get("computer")
-
-# Use computer_id with the dictionary to print the word
-print(dictionary.get(computer_id))
-
-# Create a MmCorpus: corpus
-corpus = [dictionary.doc2bow(article) for article in articles]
-
-# Print the first 10 word ids with their frequency counts from the fifth document
-print(corpus[4][:10])
-
-# Save the fifth document: doc
-doc = corpus[4]
-
-# Sort the doc for frequency: bow_doc
-bow_doc = sorted(doc, key=lambda w: w[1], reverse=True)
-
-# Print the top 5 words of the document alongside the count
-for word_id, word_count in bow_doc[:5]:
-    print(dictionary.get(word_id), word_count)
-
-# Create the defaultdict: total_word_count
-total_word_count = defaultdict(int)
-for word_id, word_count in itertools.chain.from_iterable(corpus):
-    total_word_count[word_id] += word_count
-
-# Create a sorted list from the defaultdict: sorted_word_count
-sorted_word_count = sorted(total_word_count.items(), key=lambda w: w[1], reverse=True)
-
-# Print the top 5 words across all documents alongside the count
-for word_id, word_count in sorted_word_count[:5]:
-    print(dictionary.get(word_id), word_count)
-
-
-# Create a new TfidfModel using the corpus: tfidf
-tfidf = TfidfModel(corpus)
-
-# Calculate the tfidf weights of doc: tfidf_weights
-tfidf_weights = tfidf[doc]
-
-# Print the first five weights
-print(tfidf_weights[:5])
-
-# Sort the weights from highest to lowest: sorted_tfidf_weights
-sorted_tfidf_weights = sorted(tfidf_weights, key=lambda w: w[1], reverse=True)
-
-# Print the top 5 weighted words
-for term_id, weight in sorted_tfidf_weights[:5]:
-    print(dictionary.get(term_id), weight)
-
-# Tokenize the article into sentences: sentences
-sentences = nltk.sent_tokenize(article)
-
-# Tokenize each sentence into words: token_sentences
-token_sentences = [nltk.word_tokenize(sent) for sent in sentences]
-
-# Tag each tokenized sentence into parts of speech: pos_sentences
-pos_sentences = [ nltk.pos_tag(sent) for sent in token_sentences]
-
-# Create the named entity chunks: chunked_sentences
-chunked_sentences = nltk.ne_chunk_sents(pos_sentences, binary=True)
-
-# Test for stems of the tree with 'NE' tags
-for sent in chunked_sentences:
-    for chunk in sent:
-        if hasattr(chunk, "label") and chunk.label() == "NE":
-            print(chunk)
-
-# Create the defaultdict: ner_categories
-ner_categories = defaultdict(int)
-# Create the nested for loop
-for sent in chunked_sentences:
-    for chunk in sent:
-        if hasattr(chunk, 'label'):
-            ner_categories[chunk.label()] += 1
-
-# Create a list from the dictionary keys for the chart labels: labels
-labels = list(ner_categories.keys())
-
-# Create a list of the values: values
-values = [ner_categories.get(l) for l in labels]
-
-# Create the pie chart
-plt.pie(values, labels=labels, autopct='%1.1f%%', startangle=140)
-
-# Display the chart
-plt.show()
-
-
-# Instantiate the English model: nlp
-nlp = spacy.load('en', tagger=False, parser=False, matcher=False)
-
+article = cleaned_documents[0]
 # Create a new document: doc
 doc = nlp(article)
 
@@ -289,51 +315,116 @@ doc = nlp(article)
 for ent in doc.ents:
     print(ent.label_, ent.text)
 
-# Create a new text object using Polyglot's Text class: txt
-txt = Text(article)
-
-# Print each of the entities found
-for ent in txt.entities:
-    print(ent)
-
-# Print the type of ent
-print(type(ent))
-
-# Create the list of tuples: entities
-entities = []
-for ent in txt.entities:
-    entities.append((ent.tag, ' '.join(ent)))
-# Print entities
-print(entities)
-
-# Initialize the count variable: count
-count = 0
-
-# Iterate over all the entities
-for ent in txt.entities:
-    # Check whether the entity contains 'Márquez' or 'Gabo'
-    if 'Márquez' in ent or 'Gabo' in ent:
-        # Increment count
-        count += 1
-
-# Print count
-print(count)
-
-# Calculate the percentage of entities that refer to "Gabo": percentage
-percentage = count / len(txt.entities)
-print(percentage)
-
-# Print the head of df
-print(df.head())
 
 # Create a series to store the labels: y
-y = df.label
+y = file_data.author
+file_data["author"] = file_data["author"].astype('category')
+
+from keras.utils.np_utils import to_categorical
+
+# Get the numerical ids of column label
+numerical_ids = file_data.author.cat.codes
+
+# Print initial shape
+print(numerical_ids.shape)
+
+
+# One-hot encode the indexes
+Y = to_categorical(numerical_ids)
+
+# Check the new shape of the variable
+print(Y.shape)
+
+# Print the first 5 rows
+print(Y[:5])
+
+# Create and fit tokenizer
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(file_data.text)
+
+
+
 
 # Create training and test sets
-X_train, X_test, y_train, y_test = train_test_split(df['text'],y, test_size=0.33, random_state=53)
+X_train, X_test, y_train, y_test = train_test_split(X,Y_coded, test_size=0.33, random_state=53)
+
+from keras.models import Sequential
+from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
+from keras.callbacks import EarlyStopping
+from keras.layers import Dropout
+
+# The maximum number of words to be used. (most frequent)
+MAX_NB_WORDS = 50000
+# Max number of words in each text.
+MAX_SEQUENCE_LENGTH = 1000
+# This is fixed.
+EMBEDDING_DIM = 100
+
+tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True)
+tokenizer.fit_on_texts(file_data.text.values)
+word_index = tokenizer.word_index
+print('Found %s unique tokens.' % len(word_index))
+
+
+# Change text for numerical ids and pad
+X = tokenizer.texts_to_sequences(file_data.text)
+X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
+print('Shape of data tensor:', X.shape)
+Y = pd.get_dummies(file_data['author']).values
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size = 0.5, random_state = 42)
+
+print(X_train.shape,y_train.shape)
+print(X_test.shape,y_test.shape)
+
+model = Sequential()
+model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
+model.add(SpatialDropout1D(0.2))
+model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
+model.add(Dense(6, activation='softmax'))
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+epochs =5
+batch_size = 2
+
+history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='val_loss', patience=3, min_delta=0.0001)])
+
+
+# Evaluate the model on the new dataset
+loss, acc = model.evaluate(X, Y, batch_size=64)
+
+# Print the loss and accuracy obtained
+print("Loss:\t{0}\nAccuracy:\t{1}".format(loss, acc))
+
+
+# Change text for numerical ids and pad
+X_new = tokenizer.texts_to_sequences(file_data_test.text)
+X_new = pad_sequences(X_new, maxlen=MAX_SEQUENCE_LENGTH)
+
+# # One-hot encode the labels
+# y_true= pd.get_dummies(file_data['author']).values
+#
+
+# Use the model to predict on new data
+predicted = model.predict(X_new)
+
+# Choose the class with higher probability
+y_pred = np.argmax(predicted, axis=1)
+
+
+# # Choose the class with higher probability
+# y_pred = np.argmax(predicted, axis=1)
+
+# # Compute and print the confusion matrix
+# print(confusion_matrix(y_true, y_pred))
+#
+# # Create the performance report
+# print(classification_report(y_true, y_pred, target_names=news_cat))
+#
+#
+
 
 # Initialize a CountVectorizer object: count_vectorizer
-count_vectorizer = CountVectorizer(stop_words="portuguese")
+count_vectorizer = CountVectorizer()
 
 # Transform the training data using only the 'text' column values: count_train
 count_train = count_vectorizer.fit_transform(X_train)
@@ -344,11 +435,9 @@ count_test = count_vectorizer.transform(X_test)
 # Print the first 10 features of the count_vectorizer
 print(count_vectorizer.get_feature_names()[:10])
 
-# Import TfidfVectorizer
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Initialize a TfidfVectorizer object: tfidf_vectorizer
-tfidf_vectorizer = TfidfVectorizer(stop_words="portuguese", max_df=0.7)
+tfidf_vectorizer = TfidfVectorizer( max_df=0.7)
 
 # Transform the training data: tfidf_train
 tfidf_train = tfidf_vectorizer.fit_transform(X_train)
@@ -396,7 +485,7 @@ score = metrics.accuracy_score(y_test,pred)
 print(score)
 
 # Calculate the confusion matrix: cm
-cm = metrics.confusion_matrix(y_test,pred,labels=['FAKE','REAL'])
+cm = metrics.confusion_matrix(y_test,pred)
 print(cm)
 
 # Create a Multinomial Naive Bayes classifier: nb_classifier
@@ -413,7 +502,7 @@ score = metrics.accuracy_score(y_test, pred)
 print(score)
 
 # Calculate the confusion matrix: cm
-cm = metrics.confusion_matrix(y_test, pred,labels=['FAKE', 'REAL'] )
+cm = metrics.confusion_matrix(y_test, pred)
 print(cm)
 
 # Create the list of alphas: alphas
