@@ -27,6 +27,17 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import pt_core_news_sm
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from keras.models import Sequential
+from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
+from keras.callbacks import EarlyStopping
+from keras.layers import Dropout
+from keras.utils.np_utils import to_categorical
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import LabelEncoder
+from sklearn.pipeline import Pipeline
+
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -69,17 +80,15 @@ file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index'
              .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
 
 
-
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
 lemma = WordNetLemmatizer()
 stemmer = SnowballStemmer('portuguese')
 
 
-def preprocessing(dataframe):
+def clean_data(dataframe):
     """
     Function that a receives a list of strings and preprocesses it.
-    
     :param text_list: List of strings.
     :param lemmatize: Tag to apply lemmatization if True.
     :param stemmer: Tag to apply the stemmer if True.
@@ -89,34 +98,51 @@ def preprocessing(dataframe):
         text = dataframe['text'][i]
         #LOWERCASE TEXT
         text = text.lower()
-        
         #REMOVE NUMERICAL DATA AND PUNCTUATION
         text = re.sub("[^a-zA-Z-ÁÀÂÃâáàãçÉÈÊéèêúùÚÙÕÓÒÔôõóòÍÌíìçÇ]", ' ', text)
-        
         #REMOVE TAGS
         text = BeautifulSoup(text).get_text()
-        text = text.split()
-        #REMOVE STOP WORDS
-        text = [lemma.lemmatize(word) for word in text if not word in stop]
-
-        text = " ".join(text)
         processed_corpus.append(text)
-        
     return processed_corpus
 
-cleaned_documents= preprocessing(file_data)
-cleaned_documents_test=preprocessing(file_data_test)
+cleaned_documents= clean_data(file_data)
+cleaned_documents_test=clean_data(file_data_test)
 
 def update_df(dataframe, cleaned_documents):
     dataframe['text'] = cleaned_documents
 
-
 update_df(file_data, cleaned_documents)
 update_df(file_data_test,cleaned_documents_test)
 
+###file_data nd clean documents only has non-alpha characters and html removed##
+#to be used for language modelling retains most text info##
+
+def lemmatise_stop_words (dataframe):
+    processed_corpus = []
+    for i in range(len(dataframe)):
+        text = dataframe['text'][i]
+        # REMOVE STOP WORDS
+        text = text.split()
+        text = [lemma.lemmatize(word) for word in text if not word in stop]
+        text = " ".join(text)
+        processed_corpus.append(text)
+    return processed_corpus
+
+###lem_file_data and lem_documents also has lemmatisation and stopwords removed##
+#to be used for NaiveBayes etc retains less text info##
+
+lem_documents = lemmatise_stop_words(file_data)
+lem_documents_test = lemmatise_stop_words(file_data_test)
+
+lem_file_data = file_data.copy(deep=True)
+lem_file_data_test = file_data_test.copy(deep=True)
+lem_file_data['text'] = lem_documents
+lem_file_data_test['text'] = lem_documents_test
+
+
 ############ word count #################
 
-word_count  = file_data['text'].apply(lambda x: len(str(x).split(" ")))
+word_count = file_data['text'].apply(lambda x: len(str(x).split(" ")))
 file_data['word_count']=word_count
 file_data[['text','word_count']].head()
 
@@ -124,10 +150,15 @@ all_words = ' '.join(file_data['text']).split()
 freq = pd.Series(all_words).value_counts()
 freq[:25]
 
+
+
+
 cv = CountVectorizer(
     max_df=0.8,
     max_features=10000,
-    ngram_range=(1,3) # only bigram (2,2)
+    ngram_range=(1,3), # only bigram (2,2)
+    strip_accents = 'ascii',
+    stop_words=stop
 )
 
 X = cv.fit_transform(cleaned_documents)
@@ -177,131 +208,36 @@ top_df.head(10)
 plot_frequencies(top_df)
 
 
-# TFIDF
-
-tfidf_vectorizer = TfidfTransformer()
-tfidf_vectorizer.fit(X)
-# get feature names
-feature_names = cv.get_feature_names()
-
-# fetch document for which keywords needs to be extracted
-doc = cleaned_documents[5]  # 532
-
-# generate tf-idf for the given document
-tf_idf_vector = tfidf_vectorizer.transform(cv.transform([doc]))
-
-tf_idf_vector.toarray()
-
-
-def extract_feature_scores(feature_names, document_vector):
-    """
-    Function that creates a dictionary with the TF-IDF score for each feature.
-    :param feature_names: list with all the feature words.
-    :param document_vector: vector containing the extracted features for a specific document
-
-    :return: returns a sorted dictionary "feature":"score".
-    """
-    feature2score = {}
-    for i in range(len(feature_names)):
-        feature2score[feature_names[i]] = document_vector[0][i]
-    return sorted(feature2score.items(), key=lambda kv: kv[1], reverse=True)
-
-extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
-
+# # TFIDF
+#
+# tfidf_vectorizer = TfidfTransformer()
+# tfidf_vectorizer.fit(X)
+# # get feature names
+# feature_names = cv.get_feature_names()
+#
+# # fetch document for which keywords needs to be extracted
+# doc = cleaned_documents[5]  # 532
+#
+# # generate tf-idf for the given document
+# tf_idf_vector = tfidf_vectorizer.transform(cv.transform([doc]))
+#
+# tf_idf_vector.toarray()
 #
 #
-# #Random code
-# # Create a Dictionary from the articles: dictionary
-# dictionary = Dictionary(file_data['text'].to_array())
+# def extract_feature_scores(feature_names, document_vector):
+#     """
+#     Function that creates a dictionary with the TF-IDF score for each feature.
+#     :param feature_names: list with all the feature words.
+#     :param document_vector: vector containing the extracted features for a specific document
 #
-# # Select the id for "computer": computer_id
-# computer_id = file_name_and_text.token2id.get("computer")
+#     :return: returns a sorted dictionary "feature":"score".
+#     """
+#     feature2score = {}
+#     for i in range(len(feature_names)):
+#         feature2score[feature_names[i]] = document_vector[0][i]
+#     return sorted(feature2score.items(), key=lambda kv: kv[1], reverse=True)
 #
-# # Use computer_id with the dictionary to print the word
-# print(dictionary.get(computer_id))
-#
-# # Create a MmCorpus: corpus
-# corpus = [dictionary.doc2bow(article) for article in articles]
-#
-# # Print the first 10 word ids with their frequency counts from the fifth document
-# print(corpus[4][:10])
-#
-# # Save the fifth document: doc
-# doc = corpus[4]
-#
-# # Sort the doc for frequency: bow_doc
-# bow_doc = sorted(doc, key=lambda w: w[1], reverse=True)
-#
-# # Print the top 5 words of the document alongside the count
-# for word_id, word_count in bow_doc[:5]:
-#     print(dictionary.get(word_id), word_count)
-#
-# # Create the defaultdict: total_word_count
-# total_word_count = defaultdict(int)
-# for word_id, word_count in itertools.chain.from_iterable(corpus):
-#     total_word_count[word_id] += word_count
-#
-# # Create a sorted list from the defaultdict: sorted_word_count
-# sorted_word_count = sorted(total_word_count.items(), key=lambda w: w[1], reverse=True)
-#
-# # Print the top 5 words across all documents alongside the count
-# for word_id, word_count in sorted_word_count[:5]:
-#     print(dictionary.get(word_id), word_count)
-#
-#
-# # Create a new TfidfModel using the corpus: tfidf
-# tfidf = TfidfModel(corpus)
-#
-# # Calculate the tfidf weights of doc: tfidf_weights
-# tfidf_weights = tfidf[doc]
-#
-# # Print the first five weights
-# print(tfidf_weights[:5])
-#
-# # Sort the weights from highest to lowest: sorted_tfidf_weights
-# sorted_tfidf_weights = sorted(tfidf_weights, key=lambda w: w[1], reverse=True)
-#
-# # Print the top 5 weighted words
-# for term_id, weight in sorted_tfidf_weights[:5]:
-#     print(dictionary.get(term_id), weight)
-#
-# # Tokenize the article into sentences: sentences
-# sentences = nltk.sent_tokenize(article)
-#
-# # Tokenize each sentence into words: token_sentences
-# token_sentences = [nltk.word_tokenize(sent) for sent in sentences]
-#
-# # Tag each tokenized sentence into parts of speech: pos_sentences
-# pos_sentences = [ nltk.pos_tag(sent) for sent in token_sentences]
-#
-# # Create the named entity chunks: chunked_sentences
-# chunked_sentences = nltk.ne_chunk_sents(pos_sentences, binary=True)
-#
-# # Test for stems of the tree with 'NE' tags
-# for sent in chunked_sentences:
-#     for chunk in sent:
-#         if hasattr(chunk, "label") and chunk.label() == "NE":
-#             print(chunk)
-#
-# # Create the defaultdict: ner_categories
-# ner_categories = defaultdict(int)
-# # Create the nested for loop
-# for sent in chunked_sentences:
-#     for chunk in sent:
-#         if hasattr(chunk, 'label'):
-#             ner_categories[chunk.label()] += 1
-#
-# # Create a list from the dictionary keys for the chart labels: labels
-# labels = list(ner_categories.keys())
-#
-# # Create a list of the values: values
-# values = [ner_categories.get(l) for l in labels]
-#
-# # Create the pie chart
-# plt.pie(values, labels=labels, autopct='%1.1f%%', startangle=140)
-#
-# # Display the chart
-# plt.show()
+# extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
 
 
 # Instantiate the Portuguese model: nlp
@@ -320,8 +256,6 @@ for ent in doc.ents:
 y = file_data.author
 file_data["author"] = file_data["author"].astype('category')
 
-from keras.utils.np_utils import to_categorical
-
 # Get the numerical ids of column label
 numerical_ids = file_data.author.cat.codes
 # Print initial shape
@@ -335,15 +269,10 @@ print(Y.shape)
 print(Y[:5])
 
 
-from keras.models import Sequential
-from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
-from keras.callbacks import EarlyStopping
-from keras.layers import Dropout
-
 # The maximum number of words to be used. (most frequent)
-MAX_NB_WORDS = 100000
+MAX_NB_WORDS = 70000
 # Max number of words in each text.
-MAX_SEQUENCE_LENGTH = 10000
+MAX_SEQUENCE_LENGTH = 5000
 # This is fixed.
 EMBEDDING_DIM = 100
 
@@ -358,27 +287,44 @@ X = tokenizer.texts_to_sequences(file_data.text)
 X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
 print('Shape of data tensor:', X.shape)
 Y = pd.get_dummies(file_data['author']).values
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size = 0.2, random_state = 42)
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.1, random_state=42)
 
-print(X_train.shape,y_train.shape)
-print(X_test.shape,y_test.shape)
+print(X_train.shape, y_train.shape)
+print(X_test.shape, y_test.shape)
 
-model = Sequential()
-model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
-model.add(SpatialDropout1D(0.2))
-model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
-model.add(Dense(6, activation='softmax'))
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-
-epochs =5
-batch_size = 2
-
-history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='val_loss', patience=3, min_delta=0.0001)])
+# model = Sequential()
+# model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
+# model.add(SpatialDropout1D(0.2))
+# model.add(RNN(100))
+# model.add(Dense(6, activation='softmax'))
+# model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-accr = model.evaluate(X_test,y_test)
-print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(accr[0],accr[1]))
+# epochs =2
+# batch_size = 24
+#
+#
+# history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.0001)])
+#
+#
+# accr = model.evaluate(X_test,y_test)
+# print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(accr[0],accr[1]))
 
+# define baseline model
+def baseline_model():
+    # create model
+    model = Sequential()
+    # model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
+    model.add(Dense(100, input_dim=MAX_SEQUENCE_LENGTH, activation='relu'))
+    model.add(Dense(6, activation='softmax'))
+    # Compile model
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
+
+estimator = KerasClassifier(build_fn=baseline_model, epochs=10, batch_size=25, verbose=0)
+kfold = KFold(n_splits=5, shuffle=True)
+results = cross_val_score(estimator, X, Y, cv=kfold)
+print("Baseline: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
 
 # Change text for numerical ids and pad
 X_new = tokenizer.texts_to_sequences(file_data_test.text)
