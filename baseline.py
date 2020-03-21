@@ -1,4 +1,5 @@
 # Import the necessary modules
+import unicodedata
 from nltk.corpus import stopwords
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
@@ -100,6 +101,8 @@ def clean_data(dataframe):
         text = text.lower()
         #REMOVE NUMERICAL DATA AND PUNCTUATION
         text = re.sub("[^a-zA-Z-ÁÀÂÃâáàãçÉÈÊéèêúùÚÙÕÓÒÔôõóòÍÌíìçÇ]", ' ', text)
+        # nfkd_form = unicodedata.normalize('NFKD', text)
+        # text = nfkd_form.encode('ascii', 'ignore').decode()
         #REMOVE TAGS
         text = BeautifulSoup(text).get_text()
         processed_corpus.append(text)
@@ -117,13 +120,13 @@ update_df(file_data_test,cleaned_documents_test)
 ###file_data nd clean documents only has non-alpha characters and html removed##
 #to be used for language modelling retains most text info##
 
-def lemmatise_stop_words (dataframe):
+def stem_stop_words (dataframe):
     processed_corpus = []
     for i in range(len(dataframe)):
         text = dataframe['text'][i]
         # REMOVE STOP WORDS
         text = text.split()
-        text = [lemma.lemmatize(word) for word in text if not word in stop]
+        text = [stemmer.stem(word) for word in text if not word in stop]
         text = " ".join(text)
         processed_corpus.append(text)
     return processed_corpus
@@ -131,13 +134,13 @@ def lemmatise_stop_words (dataframe):
 ###lem_file_data and lem_documents also has lemmatisation and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 
-lem_documents = lemmatise_stop_words(file_data)
-lem_documents_test = lemmatise_stop_words(file_data_test)
+stem_documents = stem_stop_words(file_data)
+stem_documents_test = stem_stop_words(file_data_test)
 
-lem_file_data = file_data.copy(deep=True)
-lem_file_data_test = file_data_test.copy(deep=True)
-lem_file_data['text'] = lem_documents
-lem_file_data_test['text'] = lem_documents_test
+stem_file_data = file_data.copy(deep=True)
+stem_file_data_test = file_data_test.copy(deep=True)
+stem_file_data['text'] = stem_documents
+stem_file_data_test['text'] = stem_documents_test
 
 
 ############ word count #################
@@ -151,8 +154,6 @@ freq = pd.Series(all_words).value_counts()
 freq[:25]
 
 
-
-
 cv = CountVectorizer(
     max_df=0.8,
     max_features=10000,
@@ -160,6 +161,7 @@ cv = CountVectorizer(
     strip_accents = 'ascii',
     stop_words=stop
 )
+
 
 X = cv.fit_transform(cleaned_documents)
 
