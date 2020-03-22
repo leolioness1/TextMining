@@ -319,7 +319,7 @@ print(X_test.shape, y_test.shape)
 model = Sequential()
 model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
 model.add(SpatialDropout1D(0.2))
-model.add(RNN(100))
+model.add(LSTM(100))
 model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
