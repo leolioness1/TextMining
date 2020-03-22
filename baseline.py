@@ -36,9 +36,14 @@ from keras.utils.np_utils import to_categorical
 from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
+
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from sklearn.pipeline import Pipeline
-
+# for windows10 run: pip install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+from torch.autograd import Variable
+import torch.nn.functional as F
+import torch
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -117,6 +122,8 @@ def update_df(dataframe, cleaned_documents):
 update_df(file_data, cleaned_documents)
 update_df(file_data_test,cleaned_documents_test)
 
+###file_data nd clean documents only has non-alpha characters and html removed##
+#to be used for language modelling retains most text info##
 
 def stem_stop_words (dataframe):
     processed_corpus = []
@@ -132,6 +139,8 @@ def stem_stop_words (dataframe):
 ###stem_file_data and stem_documents also has stemming and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 
+stem_documents = stem_stop_words(file_data)
+stem_documents_test = stem_stop_words(file_data_test)
 
 stem_file_data = file_data.copy(deep=True)
 stem_file_data_test = file_data_test.copy(deep=True)
@@ -177,8 +186,7 @@ cv = CountVectorizer(
     max_df=0.8,
     max_features=10000,
     ngram_range=(1,3), # only bigram (2,2)
-    strip_accents = 'ascii',
-    stop_words=stop
+    strip_accents = 'ascii'
 )
 
 
@@ -229,6 +237,98 @@ top_df.head(10)
 plot_frequencies(top_df)
 
 
+# #EMBEDDINGS
+#
+# def tokenize_corpus(corpus):
+#     tokens = [x.split() for x in corpus]
+#     return tokens
+#
+# tokenized_corpus = tokenize_corpus(cleaned_documents)
+# vocabulary = {word for doc in tokenized_corpus for word in doc}
+# word2idx = {w:idx for (idx, w) in enumerate(vocabulary)}
+#
+# def build_training(tokenized_corpus, word2idx, window_size=2):
+#     window_size = 2
+#     idx_pairs = []
+#
+#     # for each sentence
+#     for sentence in tokenized_corpus:
+#         indices = [word2idx[word] for word in sentence]
+#         # for each word, threated as center word
+#         for center_word_pos in range(len(indices)):
+#             # for each window position
+#             for w in range(-window_size, window_size + 1):
+#                 context_word_pos = center_word_pos + w
+#                 # make soure not jump out sentence
+#                 if context_word_pos < 0 or \
+#                         context_word_pos >= len(indices) or \
+#                         center_word_pos == context_word_pos:
+#                     continue
+#                 context_word_idx = indices[context_word_pos]
+#                 idx_pairs.append((indices[center_word_pos], context_word_idx))
+#     return np.array(idx_pairs)
+#
+#
+# training_pairs = build_training(tokenized_corpus, word2idx)
+#
+#
+# def get_onehot_vector(word_idx, vocabulary):
+#     x = torch.zeros(len(vocabulary)).float()
+#     x[word_idx] = 1.0
+#     return x
+#
+#
+# def Skip_Gram(training_pairs, vocabulary, embedding_dims=5, learning_rate=0.001, epochs=10):
+#     torch.manual_seed(3)
+#     W1 = Variable(torch.randn(embedding_dims, len(vocabulary)).float(), requires_grad=True)
+#     W2 = Variable(torch.randn(len(vocabulary), embedding_dims).float(), requires_grad=True)
+#     losses = []
+#     for epo in range(epochs):
+#         loss_val = 0
+#         for input_word, target in training_pairs:
+#             x = Variable(get_onehot_vector(input_word, vocabulary)).float()
+#             y_true = Variable(torch.from_numpy(np.array([target])).long())
+#
+#             # Matrix multiplication to obtain the input word embedding
+#             z1 = torch.matmul(W1, x)
+#
+#             # Matrix multiplication to obtain the z score for each word
+#             z2 = torch.matmul(W2, z1)
+#
+#             # Apply Log and softmax functions
+#             log_softmax = F.log_softmax(z2, dim=0)
+#             # Compute the negative-log-likelihood loss
+#             loss = F.nll_loss(log_softmax.view(1, -1), y_true)
+#             loss_val += loss.item()
+#
+#             # compute the gradient in function of the error
+#             loss.backward()
+#
+#             # Update your embeddings
+#             W1.data -= learning_rate * W1.grad.data
+#             W2.data -= learning_rate * W2.grad.data
+#
+#             W1.grad.data.zero_()
+#             W2.grad.data.zero_()
+#
+#         losses.append(loss_val / len(training_pairs))
+#
+#     return W1, W2, losses
+#
+# W1, W2, losses = Skip_Gram(training_pairs, word2idx, epochs=100)
+#
+#
+# def plot_loss(loss):
+#     x_axis = [epoch+1 for epoch in range(len(loss))]
+#     plt.plot(x_axis, loss, '-g', linewidth=1, label='Train')
+#     plt.xlabel("Epochs")
+#     plt.ylabel("Loss")
+#     plt.legend()
+#     plt.show()
+#
+# plot_loss(losses)
+
+
 # # TFIDF
 #
 # tfidf_vectorizer = TfidfTransformer()
@@ -259,6 +359,43 @@ plot_frequencies(top_df)
 #     return sorted(feature2score.items(), key=lambda kv: kv[1], reverse=True)
 #
 # extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
+
+
+############ BAG OF WORDS #################
+
+cv = CountVectorizer(max_df=0.9, binary=True)
+X = cv.fit_transform(stem_file_data['text'])
+y = np.array(stem_file_data["author"])
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
+
+################## KNN ######################
+
+modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
+                                         metric='cosine', metric_params=None, n_jobs=1)
+modelknn.fit(X_train,y_train)
+modelknn.classes_
+y_train.shape
+y_test.shape
+X_test.shape
+
+predKNN = modelknn.predict(X_test)
+predKNN
+print (classification_report(predKNN, y_test))
+
+################ Naive Bayes #################
+
+# Instantiate a Multinomial Naive Bayes classifier: nb_classifier
+nb_classifier = MultinomialNB()
+
+# Fit the classifier to the training data
+nb_classifier.fit(X_train,y_train)
+
+# Create the predicted tags: pred
+predNB = nb_classifier.predict(X_test)
+predNB
+print (classification_report(predNB, y_test))
+
 
 
 # # Instantiate the Portuguese model: nlp
@@ -316,7 +453,7 @@ print(X_test.shape, y_test.shape)
 model = Sequential()
 model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
 model.add(SpatialDropout1D(0.2))
-model.add(RNN(100))
+model.add(LSTM(100))
 model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
@@ -370,8 +507,7 @@ file_data_test["pred"] = np.argmax(predicted, axis=1)
 #
 # # Create the performance report
 # print(classification_report(y_true, y_pred, target_names=news_cat))
-#
-#
+
 
 
 # Initialize a CountVectorizer object: count_vectorizer
