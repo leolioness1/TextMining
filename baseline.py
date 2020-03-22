@@ -36,9 +36,14 @@ from keras.utils.np_utils import to_categorical
 from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
+
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from sklearn.pipeline import Pipeline
-
+# for windows10 run: pip install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+from torch.autograd import Variable
+import torch.nn.functional as F
+import torch
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -232,6 +237,98 @@ top_df.head(10)
 plot_frequencies(top_df)
 
 
+# #EMBEDDINGS
+#
+# def tokenize_corpus(corpus):
+#     tokens = [x.split() for x in corpus]
+#     return tokens
+#
+# tokenized_corpus = tokenize_corpus(cleaned_documents)
+# vocabulary = {word for doc in tokenized_corpus for word in doc}
+# word2idx = {w:idx for (idx, w) in enumerate(vocabulary)}
+#
+# def build_training(tokenized_corpus, word2idx, window_size=2):
+#     window_size = 2
+#     idx_pairs = []
+#
+#     # for each sentence
+#     for sentence in tokenized_corpus:
+#         indices = [word2idx[word] for word in sentence]
+#         # for each word, threated as center word
+#         for center_word_pos in range(len(indices)):
+#             # for each window position
+#             for w in range(-window_size, window_size + 1):
+#                 context_word_pos = center_word_pos + w
+#                 # make soure not jump out sentence
+#                 if context_word_pos < 0 or \
+#                         context_word_pos >= len(indices) or \
+#                         center_word_pos == context_word_pos:
+#                     continue
+#                 context_word_idx = indices[context_word_pos]
+#                 idx_pairs.append((indices[center_word_pos], context_word_idx))
+#     return np.array(idx_pairs)
+#
+#
+# training_pairs = build_training(tokenized_corpus, word2idx)
+#
+#
+# def get_onehot_vector(word_idx, vocabulary):
+#     x = torch.zeros(len(vocabulary)).float()
+#     x[word_idx] = 1.0
+#     return x
+#
+#
+# def Skip_Gram(training_pairs, vocabulary, embedding_dims=5, learning_rate=0.001, epochs=10):
+#     torch.manual_seed(3)
+#     W1 = Variable(torch.randn(embedding_dims, len(vocabulary)).float(), requires_grad=True)
+#     W2 = Variable(torch.randn(len(vocabulary), embedding_dims).float(), requires_grad=True)
+#     losses = []
+#     for epo in range(epochs):
+#         loss_val = 0
+#         for input_word, target in training_pairs:
+#             x = Variable(get_onehot_vector(input_word, vocabulary)).float()
+#             y_true = Variable(torch.from_numpy(np.array([target])).long())
+#
+#             # Matrix multiplication to obtain the input word embedding
+#             z1 = torch.matmul(W1, x)
+#
+#             # Matrix multiplication to obtain the z score for each word
+#             z2 = torch.matmul(W2, z1)
+#
+#             # Apply Log and softmax functions
+#             log_softmax = F.log_softmax(z2, dim=0)
+#             # Compute the negative-log-likelihood loss
+#             loss = F.nll_loss(log_softmax.view(1, -1), y_true)
+#             loss_val += loss.item()
+#
+#             # compute the gradient in function of the error
+#             loss.backward()
+#
+#             # Update your embeddings
+#             W1.data -= learning_rate * W1.grad.data
+#             W2.data -= learning_rate * W2.grad.data
+#
+#             W1.grad.data.zero_()
+#             W2.grad.data.zero_()
+#
+#         losses.append(loss_val / len(training_pairs))
+#
+#     return W1, W2, losses
+#
+# W1, W2, losses = Skip_Gram(training_pairs, word2idx, epochs=100)
+#
+#
+# def plot_loss(loss):
+#     x_axis = [epoch+1 for epoch in range(len(loss))]
+#     plt.plot(x_axis, loss, '-g', linewidth=1, label='Train')
+#     plt.xlabel("Epochs")
+#     plt.ylabel("Loss")
+#     plt.legend()
+#     plt.show()
+#
+# plot_loss(losses)
+
+
 # # TFIDF
 #
 # tfidf_vectorizer = TfidfTransformer()
@@ -410,8 +507,7 @@ file_data_test["pred"] = np.argmax(predicted, axis=1)
 #
 # # Create the performance report
 # print(classification_report(y_true, y_pred, target_names=news_cat))
-#
-#
+
 
 
 # Initialize a CountVectorizer object: count_vectorizer
