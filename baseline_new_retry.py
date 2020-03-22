@@ -1,18 +1,44 @@
-import numpy as np
-import pandas as pd
-import nltk
+# Import the necessary modules
+import unicodedata
 from nltk.corpus import stopwords
-import re
-import matplotlib.pyplot as plt
-import os
-import string
 from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+from nltk.corpus import wordnet
 from nltk.stem import SnowballStemmer
 from bs4 import BeautifulSoup
+import string
+from gensim.corpora.dictionary import Dictionary
+from collections import defaultdict
+import itertools
+import nltk
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import os
+import re
+from sklearn import metrics
+from sklearn.naive_bayes import MultinomialNB
+from gensim.models.tfidfmodel import TfidfModel
+import spacy
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
+# run this if not installed: python -m spacy download pt_core_news_sm
+import pt_core_news_sm
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+from keras.models import Sequential
+from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
+from keras.callbacks import EarlyStopping
+from keras.layers import Dropout
+from keras.utils.np_utils import to_categorical
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import LabelEncoder
+from sklearn.pipeline import Pipeline
+
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -54,6 +80,7 @@ for file in os.listdir(root_test):
 file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
 
+
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
 lemma = WordNetLemmatizer()
@@ -74,6 +101,8 @@ def clean_data(dataframe):
         text = text.lower()
         #REMOVE NUMERICAL DATA AND PUNCTUATION
         text = re.sub("[^a-zA-Z-ÁÀÂÃâáàãçÉÈÊéèêúùÚÙÕÓÒÔôõóòÍÌíìçÇ]", ' ', text)
+        # nfkd_form = unicodedata.normalize('NFKD', text)
+        # text = nfkd_form.encode('ascii', 'ignore').decode()
         #REMOVE TAGS
         text = BeautifulSoup(text).get_text()
         processed_corpus.append(text)
@@ -88,8 +117,6 @@ def update_df(dataframe, cleaned_documents):
 update_df(file_data, cleaned_documents)
 update_df(file_data_test,cleaned_documents_test)
 
-###file_data nd clean documents only has non-alpha characters and html removed##
-#to be used for language modelling retains most text info##
 
 def stem_stop_words (dataframe):
     processed_corpus = []
@@ -102,17 +129,37 @@ def stem_stop_words (dataframe):
         processed_corpus.append(text)
     return processed_corpus
 
-###lem_file_data and lem_documents also has lemmatisation and stopwords removed##
+###stem_file_data and stem_documents also has stemming and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 
-stem_documents = stem_stop_words(file_data)
-stem_documents_test = stem_stop_words(file_data_test)
 
 stem_file_data = file_data.copy(deep=True)
 stem_file_data_test = file_data_test.copy(deep=True)
 stem_file_data['text'] = stem_documents
 stem_file_data_test['text'] = stem_documents_test
 
+
+def lemma_stop_words (dataframe):
+    processed_corpus = []
+    for i in range(len(dataframe)):
+        text = dataframe['text'][i]
+        # REMOVE STOP WORDS
+        text = text.split()
+        text = [lemma.lemmatize(word) for word in text if not word in stop]
+        text = " ".join(text)
+        processed_corpus.append(text)
+    return processed_corpus
+
+###lemma_file_data and lemma_documents also has lemmatisation and stopwords removed##
+#to be used for NaiveBayes etc retains less text info##
+
+lemma_documents = lemma_stop_words(file_data)
+lemma_documents_test = lemma_stop_words(file_data_test)
+
+lemma_file_data = file_data.copy(deep=True)
+lemma_file_data_test = file_data_test.copy(deep=True)
+lemma_file_data['text'] = lemma_documents
+lemma_file_data_test['text'] = lemma_documents_test
 
 categories = []
 j = 0
