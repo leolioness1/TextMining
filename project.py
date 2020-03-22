@@ -98,6 +98,7 @@ vector_count = cv.fit_transform(postagsfull)
 tfidf_vectorizer = TfidfTransformer()
 vector_tfidf = tfidf_vectorizer.fit_transform(vector_count)
 
+#######
 
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
