@@ -117,8 +117,6 @@ def update_df(dataframe, cleaned_documents):
 update_df(file_data, cleaned_documents)
 update_df(file_data_test,cleaned_documents_test)
 
-###file_data nd clean documents only has non-alpha characters and html removed##
-#to be used for language modelling retains most text info##
 
 def stem_stop_words (dataframe):
     processed_corpus = []
@@ -130,6 +128,15 @@ def stem_stop_words (dataframe):
         text = " ".join(text)
         processed_corpus.append(text)
     return processed_corpus
+
+###stem_file_data and stem_documents also has stemming and stopwords removed##
+#to be used for NaiveBayes etc retains less text info##
+
+
+stem_file_data = file_data.copy(deep=True)
+stem_file_data_test = file_data_test.copy(deep=True)
+stem_file_data['text'] = stem_documents
+stem_file_data_test['text'] = stem_documents_test
 
 
 def lemma_stop_words (dataframe):
@@ -143,7 +150,7 @@ def lemma_stop_words (dataframe):
         processed_corpus.append(text)
     return processed_corpus
 
-###ste,_file_data and lemma_documents also has lemmatisation and stopwords removed##
+###lemma_file_data and lemma_documents also has lemmatisation and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 
 lemma_documents = lemma_stop_words(file_data)
