@@ -18,7 +18,7 @@ import re
 from sklearn import metrics
 from sklearn.naive_bayes import MultinomialNB
 from gensim.models.tfidfmodel import TfidfModel
-import spacy
+#import spacy
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfTransformer
@@ -26,10 +26,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report
 # run this if not installed: python -m spacy download pt_core_news_sm
-import pt_core_news_sm
+#import pt_core_news_sm
 #from keras.preprocessing.text import Tokenizer
 #from keras.preprocessing.sequence import pad_sequences
 import warnings
+import tqdm
+
+
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 root = os.getcwd() + '\\Corpora\\train'
@@ -72,6 +76,27 @@ for file in os.listdir(root_test):
 file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
 
+###POS Tagging###
+
+from ptbr_postag.ptbr_postag import pos_tagger
+
+tagger = pos_tagger()
+
+file_data_pos = []
+for i in file_data.text:
+    file_data_pos.append(tagger.tag_text(text = i,bRemoveStopwords=False))
+postagsfull = []
+
+for text in file_data_pos:
+    postext = ""
+    for token in text:
+        postext = postext+token[1]+" "
+    postagsfull.append(postext)
+cv = CountVectorizer(max_df = 0.8,ngram_range=(1,3))
+vector_count = cv.fit_transform(postagsfull)
+
+tfidf_vectorizer = TfidfTransformer()
+vector_tfidf = tfidf_vectorizer.fit_transform(vector_count)
 
 
 stop = set(stopwords.words('portuguese'))
