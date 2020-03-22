@@ -262,14 +262,12 @@ class MultinomialLR(Classifier):
         self.parameters[:, y] = self.parameters[:, y] + self.lr*np.append(x, [1])
 
 
-lr  = MultinomialLR(X.shape[1], len(np.unique(Y)))
+lr = MultinomialLR(X.shape[1], len(np.unique(Y)))
 
 print(lr.parameters.shape)
 
 X_test = vectorizer.transform(test.text).toarray()
 Y_test = test.author
-
-
 
 train_acc, dev_acc = lr.train(X, Y, devX=X_test, devY=Y_test, epochs=5)
 
