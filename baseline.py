@@ -254,16 +254,16 @@ plot_frequencies(top_df)
 # extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
 
 
-# Instantiate the Portuguese model: nlp
-nlp = pt_core_news_sm.load()
+# # Instantiate the Portuguese model: nlp
+# nlp = pt_core_news_sm.load()
 
-article = cleaned_documents[0]
-# Create a new document: doc
-doc = nlp(article)
+# article = cleaned_documents[0]
+# # Create a new document: doc
+# doc = nlp(article)
 
-# Print all of the found entities and their labels
-for ent in doc.ents:
-    print(ent.label_, ent.text)
+# # Print all of the found entities and their labels
+# for ent in doc.ents:
+#     print(ent.label_, ent.text)
 
 
 # Create a series to store the labels: y
@@ -306,23 +306,23 @@ X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.1, random_s
 print(X_train.shape, y_train.shape)
 print(X_test.shape, y_test.shape)
 
-# model = Sequential()
-# model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
-# model.add(SpatialDropout1D(0.2))
-# model.add(RNN(100))
-# model.add(Dense(6, activation='softmax'))
-# model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model = Sequential()
+model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
+model.add(SpatialDropout1D(0.2))
+model.add(RNN(100))
+model.add(Dense(6, activation='softmax'))
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-# epochs =2
-# batch_size = 24
-#
-#
-# history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.0001)])
-#
-#
-# accr = model.evaluate(X_test,y_test)
-# print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(accr[0],accr[1]))
+epochs =2
+batch_size = 24
+
+
+history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.0001)])
+
+
+accr = model.evaluate(X_test,y_test)
+print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(accr[0],accr[1]))
 
 # define baseline model
 def baseline_model():
