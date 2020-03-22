@@ -131,16 +131,28 @@ def stem_stop_words (dataframe):
         processed_corpus.append(text)
     return processed_corpus
 
-###lem_file_data and lem_documents also has lemmatisation and stopwords removed##
+
+def lemma_stop_words (dataframe):
+    processed_corpus = []
+    for i in range(len(dataframe)):
+        text = dataframe['text'][i]
+        # REMOVE STOP WORDS
+        text = text.split()
+        text = [lemma.lemmatize(word) for word in text if not word in stop]
+        text = " ".join(text)
+        processed_corpus.append(text)
+    return processed_corpus
+
+###ste,_file_data and lemma_documents also has lemmatisation and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 
-stem_documents = stem_stop_words(file_data)
-stem_documents_test = stem_stop_words(file_data_test)
+lemma_documents = lemma_stop_words(file_data)
+lemma_documents_test = lemma_stop_words(file_data_test)
 
-stem_file_data = file_data.copy(deep=True)
-stem_file_data_test = file_data_test.copy(deep=True)
-stem_file_data['text'] = stem_documents
-stem_file_data_test['text'] = stem_documents_test
+lemma_file_data = file_data.copy(deep=True)
+lemma_file_data_test = file_data_test.copy(deep=True)
+lemma_file_data['text'] = lemma_documents
+lemma_file_data_test['text'] = lemma_documents_test
 
 
 ############ word count #################
