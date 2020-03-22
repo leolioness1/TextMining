@@ -1,44 +1,19 @@
-# Import the necessary modules
-import unicodedata
+import numpy as np
+import pandas as pd
+import nltk
 from nltk.corpus import stopwords
+import re
+import matplotlib.pyplot as plt
+import os
+import string
 from nltk.stem.wordnet import WordNetLemmatizer
-from nltk.tokenize import word_tokenize
-from nltk.corpus import wordnet
 from nltk.stem import SnowballStemmer
 from bs4 import BeautifulSoup
-import string
-from gensim.corpora.dictionary import Dictionary
-from collections import defaultdict
-import itertools
-import nltk
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-import os
-import re
-from sklearn import metrics
-from sklearn.naive_bayes import MultinomialNB
-from gensim.models.tfidfmodel import TfidfModel
-import spacy
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
-# run this if not installed: python -m spacy download pt_core_news_sm
-import pt_core_news_sm
-from keras.preprocessing.text import Tokenizer
-from keras.preprocessing.sequence import pad_sequences
-from keras.models import Sequential
-from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
-from keras.callbacks import EarlyStopping
-from keras.layers import Dropout
-from keras.utils.np_utils import to_categorical
-from keras.wrappers.scikit_learn import KerasClassifier
-from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import KFold
-from sklearn.preprocessing import LabelEncoder
-from sklearn.pipeline import Pipeline
-
+from tqdm import tqdm_notebook as tqdm
+from sklearn.model_selection import train_test_split
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -80,16 +55,16 @@ for file in os.listdir(root_test):
 file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
 
-
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
 lemma = WordNetLemmatizer()
 stemmer = SnowballStemmer('portuguese')
 
 
-def clean_data(dataframe):
+def preprocessing(dataframe):
     """
     Function that a receives a list of strings and preprocesses it.
+
     :param text_list: List of strings.
     :param lemmatize: Tag to apply lemmatization if True.
     :param stemmer: Tag to apply the stemmer if True.
@@ -97,62 +72,42 @@ def clean_data(dataframe):
     processed_corpus = []
     for i in range(len(dataframe)):
         text = dataframe['text'][i]
-        #LOWERCASE TEXT
+        # LOWERCASE TEXT
         text = text.lower()
-        #REMOVE NUMERICAL DATA AND PUNCTUATION
+
+        # REMOVE NUMERICAL DATA AND PUNCTUATION
         text = re.sub("[^a-zA-Z-ÁÀÂÃâáàãçÉÈÊéèêúùÚÙÕÓÒÔôõóòÍÌíìçÇ]", ' ', text)
-        # nfkd_form = unicodedata.normalize('NFKD', text)
-        # text = nfkd_form.encode('ascii', 'ignore').decode()
-        #REMOVE TAGS
+
+        # REMOVE TAGS
         text = BeautifulSoup(text).get_text()
+        text = text.split()
+        # REMOVE STOP WORDS
+        text = [lemma.lemmatize(word) for word in text if not word in stop]
+
+        text = " ".join(text)
         processed_corpus.append(text)
+
     return processed_corpus
 
-cleaned_documents= clean_data(file_data)
-cleaned_documents_test=clean_data(file_data_test)
+
+cleaned_documents = preprocessing(file_data)
+cleaned_documents_test = preprocessing(file_data_test)
+
 
 def update_df(dataframe, cleaned_documents):
     dataframe['text'] = cleaned_documents
 
+
+update_df(file_data, cleaned_documents)
+update_df(file_data_test, cleaned_documents_test)
+
+def update_df(dataframe, cleaned_documents):
+    dataframe['text'] = cleaned_documents
+
+
 update_df(file_data, cleaned_documents)
 update_df(file_data_test,cleaned_documents_test)
 
-###file_data nd clean documents only has non-alpha characters and html removed##
-#to be used for language modelling retains most text info##
-
-def stem_stop_words (dataframe):
-    processed_corpus = []
-    for i in range(len(dataframe)):
-        text = dataframe['text'][i]
-        # REMOVE STOP WORDS
-        text = text.split()
-        text = [stemmer.stem(word) for word in text if not word in stop]
-        text = " ".join(text)
-        processed_corpus.append(text)
-    return processed_corpus
-
-
-def lemma_stop_words (dataframe):
-    processed_corpus = []
-    for i in range(len(dataframe)):
-        text = dataframe['text'][i]
-        # REMOVE STOP WORDS
-        text = text.split()
-        text = [lemma.lemmatize(word) for word in text if not word in stop]
-        text = " ".join(text)
-        processed_corpus.append(text)
-    return processed_corpus
-
-###ste,_file_data and lemma_documents also has lemmatisation and stopwords removed##
-#to be used for NaiveBayes etc retains less text info##
-
-lemma_documents = lemma_stop_words(file_data)
-lemma_documents_test = lemma_stop_words(file_data_test)
-
-lemma_file_data = file_data.copy(deep=True)
-lemma_file_data_test = file_data_test.copy(deep=True)
-lemma_file_data['text'] = lemma_documents
-lemma_file_data_test['text'] = lemma_documents_test
 
 categories = []
 j = 0
@@ -202,7 +157,7 @@ class Classifier(object):
         train_accuracy = [self.evaluate(X, Y)]
         dev_accuracy = [self.evaluate(devX, devY)]
         for epoch in range(epochs):
-            for i in range(X.shape[0]):
+            for i in tqdm(range(X.shape[0])):
                 self.update_weights(X[i, :], Y[i])
             train_accuracy.append(self.evaluate(X, Y))
             dev_accuracy.append(self.evaluate(devX, devY))
@@ -302,13 +257,16 @@ class MultinomialLR(Classifier):
         self.parameters[:, y] = self.parameters[:, y] + self.lr*np.append(x, [1])
 
 
-lr = MultinomialLR(X.shape[1], len(np.unique(Y)))
+lr  = MultinomialLR(X.shape[1], len(np.unique(Y)))
 
 print(lr.parameters.shape)
 
 X_test = vectorizer.transform(test.text).toarray()
 Y_test = test.author
 
+
+
 train_acc, dev_acc = lr.train(X, Y, devX=X_test, devY=Y_test, epochs=5)
 
 lr.plot_train(train_acc, dev_acc)
+
