@@ -45,6 +45,7 @@ from sklearn.pipeline import Pipeline
 from torch.autograd import Variable
 import torch.nn.functional as F
 import torch
+import pickle
 
 root = os.getcwd() + '\\Corpora\\train'
 
@@ -464,7 +465,7 @@ print(X_test.shape, y_test.shape)
 model = Sequential()
 model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
 model.add(SpatialDropout1D(0.2))
-model.add(LSTM(100))
+model.add(LSTM(50))
 model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
@@ -472,8 +473,15 @@ model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accur
 epochs =10
 # “batch gradient descent“ batch_size= len(X_train) epochs=200
 batch_size = 32
-
+import datetime
 history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.001)])
+# save the model to disk
+filename = 'lstm_model_{}.pkl'.format(datetime.date.today())
+pickle.dump(model, open(filename, 'wb'))
+
+#
+# # load the model from disk
+# loaded_model = pickle.load(open(filename, 'rb'))
 
 # evaluate the model
 train_acc = model.evaluate(X_train, y_train, verbose=0)
