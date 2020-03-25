@@ -96,8 +96,7 @@ def split_strings_n_words(df, n):
 
 new_file_data = split_strings_n_words(file_data,500)
 
-new_file_data.groupby(['author','Title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
-
+new_file_data.groupby(['author','title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
 
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
@@ -126,13 +125,13 @@ def clean_data(dataframe):
         processed_corpus.append(text)
     return processed_corpus
 
-cleaned_documents= clean_data(file_data)
+cleaned_documents= clean_data(new_file_data)
 cleaned_documents_test=clean_data(file_data_test)
 
 def update_df(dataframe, cleaned_documents):
     dataframe['text'] = cleaned_documents
 
-update_df(file_data, cleaned_documents)
+update_df(new_file_data, cleaned_documents)
 update_df(file_data_test,cleaned_documents_test)
 
 ###file_data nd clean documents only has non-alpha characters and html removed##
@@ -152,10 +151,10 @@ def stem_stop_words (dataframe):
 ###stem_file_data and stem_documents also has stemming and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 
-stem_documents = stem_stop_words(file_data)
+stem_documents = stem_stop_words(new_file_data)
 stem_documents_test = stem_stop_words(file_data_test)
 
-stem_file_data = file_data.copy(deep=True)
+stem_file_data = new_file_data.copy(deep=True)
 stem_file_data_test = file_data_test.copy(deep=True)
 stem_file_data['text'] = stem_documents
 stem_file_data_test['text'] = stem_documents_test
@@ -175,10 +174,10 @@ def lemma_stop_words (dataframe):
 ###lemma_file_data and lemma_documents also has lemmatisation and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 
-lemma_documents = lemma_stop_words(file_data)
+lemma_documents = lemma_stop_words(new_file_data)
 lemma_documents_test = lemma_stop_words(file_data_test)
 
-lemma_file_data = file_data.copy(deep=True)
+lemma_file_data = new_file_data.copy(deep=True)
 lemma_file_data_test = file_data_test.copy(deep=True)
 lemma_file_data['text'] = lemma_documents
 lemma_file_data_test['text'] = lemma_documents_test
@@ -443,7 +442,7 @@ print (classification_report(predNB, y_test))
 
 # Create a series to store the labels: y
 y = file_data.author
-file_data["author"] = file_data["author"].astype('category')
+new_file_data["author"] = new_file_data["author"].astype('category')
 
 # Get the numerical ids of column label
 numerical_ids = file_data.author.cat.codes
@@ -461,22 +460,22 @@ print(Y[:5])
 # The maximum number of words to be used. (most frequent)
 MAX_NB_WORDS = 70000
 # Max number of words in each text.
-MAX_SEQUENCE_LENGTH = 5000
+MAX_SEQUENCE_LENGTH = 500
 # This is fixed.
 EMBEDDING_DIM = 100
 
 tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True)
-tokenizer.fit_on_texts(file_data.text.values)
+tokenizer.fit_on_texts(new_file_data.text.values)
 word_index = tokenizer.word_index
 print('Found %s unique tokens.' % len(word_index))
 
 
 # Change text for numerical ids and pad
-X = tokenizer.texts_to_sequences(file_data.text)
+X = tokenizer.texts_to_sequences(new_file_data.text)
 X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
 print('Shape of data tensor:', X.shape)
-Y = pd.get_dummies(file_data['author']).values
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.1, random_state=42)
+Y = pd.get_dummies(new_file_data['author']).values
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.2, random_state=42)
 
 print(X_train.shape, y_train.shape)
 print(X_test.shape, y_test.shape)
@@ -489,11 +488,12 @@ model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-epochs =2
-batch_size = 24
+epochs =200
+# “batch gradient descent“ batch_size= len(X_train) epochs=200
+batch_size = len(X_train)
 
 
-history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.0001)])
+history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.0001)])
 
 
 accr = model.evaluate(X_test,y_test)
