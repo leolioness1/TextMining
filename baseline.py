@@ -36,6 +36,7 @@ from keras.utils.np_utils import to_categorical
 from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
+from ptbr_postag.ptbr_postag import pos_tagger
 
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
@@ -62,10 +63,7 @@ for file in os.listdir(root):
 
 file_data = (pd.DataFrame.from_dict(file_name_and_text, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'author', 0: 'text'}))
-# new data frame with split value columns
-new = file_data["author"].str.split("/", n=1, expand=True)
-file_data["author"] = new[0]
-file_data["Title"] = new[1]
+
 
 root_test = os.getcwd() + '\\Corpora\\test'
 
@@ -84,6 +82,21 @@ for file in os.listdir(root_test):
 
 file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
+
+
+def split_strings_n_words(df, n):
+    new_df =pd.concat([pd.Series(row['author'], [' '.join(row['text'].split()[x:x + n]) for x in range(0, len(row['text'].split()), n)]) for _, row in df.iterrows()]).reset_index()
+    # new data frame with split value columns
+    new = new_df[0].str.split("/", n=1, expand=True)
+    new_df.drop(columns=[0],inplace=True)
+    new_df["author"] = new[0]
+    new_df["title"] = new[1]
+    new_df.rename(columns={"index":"text"},inplace=True)
+    return new_df
+
+new_file_data = split_strings_n_words(file_data,500)
+
+new_file_data.groupby(['author','Title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
 
 
 stop = set(stopwords.words('portuguese'))
@@ -180,6 +193,24 @@ file_data[['text','word_count']].head()
 all_words = ' '.join(file_data['text']).split()
 freq = pd.Series(all_words).value_counts()
 freq[:25]
+
+tagger = pos_tagger()
+
+file_data_pos = []
+for i in file_data.text:
+    file_data_pos.append(tagger.tag_text(text = i,bRemoveStopwords=False))
+postagsfull = []
+
+for text in file_data_pos:
+    postext = ""
+    for token in text:
+        postext = postext+token[1]+" "
+    postagsfull.append(postext)
+cv = CountVectorizer(max_df = 0.8,ngram_range=(1,3))
+vector_count = cv.fit_transform(postagsfull)
+
+tfidf_vectorizer = TfidfTransformer()
+vector_tfidf = tfidf_vectorizer.fit_transform(vector_count)
 
 
 cv = CountVectorizer(
