@@ -469,11 +469,11 @@ model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-epochs =5
+epochs =10
 # “batch gradient descent“ batch_size= len(X_train) epochs=200
 batch_size = 32
 
-history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
+history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.001)])
 
 # evaluate the model
 train_acc = model.evaluate(X_train, y_train, verbose=0)
