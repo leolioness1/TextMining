@@ -396,41 +396,51 @@ plot_frequencies(top_df)
 #
 # extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
 
-#
-# ############ BAG OF WORDS #################
-#
-# cv = CountVectorizer(max_df=0.9, binary=True)
-# X = cv.fit_transform(stem_file_data['text'])
-# y = np.array(stem_file_data["author"])
-#
-# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
-#
-# ################## KNN ######################
-#
-# modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
-#                                          metric='cosine', metric_params=None, n_jobs=1)
-# modelknn.fit(X_train,y_train)
-# modelknn.classes_
-# y_train.shape
-# y_test.shape
-# X_test.shape
-#
-# predKNN = modelknn.predict(X_test)
-# predKNN
-# print (classification_report(predKNN, y_test))
-#
-# ################ Naive Bayes #################
-#
-# # Instantiate a Multinomial Naive Bayes classifier: nb_classifier
-# nb_classifier = MultinomialNB()
-#
-# # Fit the classifier to the training data
-# nb_classifier.fit(X_train,y_train)
-#
-# # Create the predicted tags: pred
-# predNB = nb_classifier.predict(X_test)
-# predNB
-# print (classification_report(predNB, y_test))
+############# BAG OF WORDS ##################
+cv_NB = CountVectorizer(max_df=0.9, binary=True)
+
+X_NB = cv_NB.fit_transform(stem_file_data['text'])
+
+
+cv_KNN = CountVectorizer(
+    max_df=0.8,
+    max_features=1000,
+    ngram_range=(1,3) # only bigram (2,2)
+)
+
+X_KNN = cv_KNN.fit_transform(stem_file_data['text'])
+
+
+y = np.array(stem_file_data["author"])
+
+
+################## KNN ######################
+
+X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
+
+modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
+                                          metric='cosine', metric_params=None, n_jobs=1)
+modelknn.fit(X_train,y_train)
+modelknn.classes_
+
+
+predKNN = modelknn.predict(X_test)
+predKNN
+print (classification_report(predKNN, y_test))
+
+################ Naive Bayes #################
+
+X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.2, random_state = 42)
+
+nb_classifier = MultinomialNB()
+
+# Fit the classifier to the training data
+nb_classifier.fit(X_train,y_train)
+
+# Create the predicted tags: pred
+predNB = nb_classifier.predict(X_test)
+predNB
+print (classification_report(predNB, y_test))
 
 
 # # Instantiate the Portuguese model: nlp
