@@ -24,6 +24,8 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report
 # run this if not installed: python -m spacy download pt_core_news_sm
 import pt_core_news_sm
 from keras.preprocessing.text import Tokenizer
@@ -46,6 +48,9 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import torch
 import pickle
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 
 root = os.getcwd() + '\\Corpora\\train'
 
