@@ -49,6 +49,7 @@ import torch.nn.functional as F
 import torch
 import pickle
 import warnings
+import datetime
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
@@ -91,13 +92,13 @@ file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index'
 
 
 def split_strings_n_words(df, n):
-    new_df =pd.concat([pd.Series(row['author'], [' '.join(row['text'].split()[x:x + n]) for x in range(0, len(row['text'].split()), n)]) for _, row in df.iterrows()]).reset_index()
+    new_df = pd.concat([pd.Series(row['author'], [' '.join(row['text'].split()[x:x + n]) for x in range(0, len(row['text'].split()), n)]) for _, row in df.iterrows()]).reset_index()
     # new data frame with split value columns
     new = new_df[0].str.split("/", n=1, expand=True)
-    new_df.drop(columns=[0],inplace=True)
+    new_df.drop(columns=[0], inplace=True)
     new_df["author"] = new[0]
     new_df["title"] = new[1]
-    new_df.rename(columns={"index":"text"},inplace=True)
+    new_df.rename(columns={"index":"text"}, inplace=True)
     return new_df
 
 new_file_data = split_strings_n_words(file_data,500)
@@ -430,7 +431,7 @@ print (classification_report(predKNN, y_test))
 
 ################ Naive Bayes #################
 
-X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.2, random_state = 42)
+X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.1, random_state = 42)
 
 nb_classifier = MultinomialNB()
 
@@ -455,7 +456,7 @@ print (classification_report(predNB, y_test))
 #     print(ent.label_, ent.text)
 
 # The maximum number of words to be used. (most frequent)
-MAX_NB_WORDS = 70000
+MAX_NB_WORDS = 100000
 # Max number of words in each text.
 MAX_SEQUENCE_LENGTH = 500
 # This is fixed.
@@ -471,16 +472,16 @@ print('Found %s unique tokens.' % len(word_index))
 X = tokenizer.texts_to_sequences(new_file_data.text)
 X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
 print('Shape of data tensor:', X.shape)
-Y = pd.get_dummies(new_file_data['author']).values
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.2, random_state=42)
+
+Y = pd.get_dummies(new_file_data['author'])
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.1, random_state=42)
 
 print(X_train.shape, y_train.shape)
 print(X_test.shape, y_test.shape)
 
 model = Sequential()
 model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
-model.add(SpatialDropout1D(0.2))
-model.add(LSTM(50))
+model.add(LSTM(100))
 model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
@@ -488,8 +489,8 @@ model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accur
 epochs =10
 # “batch gradient descent“ batch_size= len(X_train) epochs=200
 batch_size = 32
-import datetime
-history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.001)])
+
+history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
 # save the model to disk
 filename = 'lstm_model_{}.pkl'.format(datetime.date.today())
 pickle.dump(model, open(filename, 'wb'))
@@ -513,24 +514,20 @@ plt.show()
 # Change text for numerical ids and pad
 X_new = tokenizer.texts_to_sequences(file_data_test.text)
 X_new = pad_sequences(X_new, maxlen=MAX_SEQUENCE_LENGTH)
-# # One-hot encode the labels
-# y_true= pd.get_dummies(file_data['author']).values
+
+
 # Use the model to predict on new data
 predicted = model.predict(X_new)
 # Choose the class with higher probability
-file_data_test["pred"] = np.argmax(predicted, axis=1)
+file_data_test.insert(1,'prediction',Y.columns[list(np.argmax(predicted, axis=1))])
 
-# # Choose the class with higher probability
-# y_pred = np.argmax(predicted, axis=1)
-#
 # # Compute and print the confusion matrix
 # print(confusion_matrix(y_true, y_pred))
 #
 # # Create the performance report
 # print(classification_report(y_true, y_pred, target_names=news_cat))
-#
 
-#
+
 # # Initialize a CountVectorizer object: count_vectorizer
 # count_vectorizer = CountVectorizer()
 #
