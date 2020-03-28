@@ -102,6 +102,7 @@ def split_strings_n_words(df, n):
     return new_df
 
 new_file_data = split_strings_n_words(file_data,500)
+new_file_data_1000 = split_strings_n_words(file_data,1000)
 
 new_file_data.groupby(['author','title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
 
@@ -133,12 +134,14 @@ def clean_data(dataframe):
     return processed_corpus
 
 cleaned_documents= clean_data(new_file_data)
+cleaned_documents_1000= clean_data(new_file_data_1000)
 cleaned_documents_test=clean_data(file_data_test)
 
 def update_df(dataframe, cleaned_documents):
     dataframe['text'] = cleaned_documents
 
 update_df(new_file_data, cleaned_documents)
+update_df(new_file_data, cleaned_documents_1000)
 update_df(file_data_test,cleaned_documents_test)
 
 ###file_data nd clean documents only has non-alpha characters and html removed##
@@ -456,25 +459,34 @@ print (classification_report(predNB, y_test))
 #     print(ent.label_, ent.text)
 
 # The maximum number of words to be used. (most frequent)
-MAX_NB_WORDS = 100000
+MAX_NB_WORDS = 60000
 # Max number of words in each text.
-MAX_SEQUENCE_LENGTH = 500
+MAX_SEQUENCE_LENGTH = 1000
 # This is fixed.
 EMBEDDING_DIM = 100
+epochs =10
+# “batch gradient descent“ batch_size= len(X_train) epochs=200
+batch_size = 32
 
 tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True)
+tokenizer_1000= Tokenizer(num_words=MAX_NB_WORDS, lower=True)
 tokenizer.fit_on_texts(new_file_data.text.values)
+tokenizer_1000.fit_on_texts(new_file_data_1000.text.values)
 word_index = tokenizer.word_index
 print('Found %s unique tokens.' % len(word_index))
 
 
 # Change text for numerical ids and pad
 X = tokenizer.texts_to_sequences(new_file_data.text)
+X_1000 = tokenizer_1000.texts_to_sequences((new_file_data_1000.text))
+X_1000 = pad_sequences(X_1000,maxlen=MAX_SEQUENCE_LENGTH)
 X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
 print('Shape of data tensor:', X.shape)
 
 Y = pd.get_dummies(new_file_data['author'])
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.1, random_state=42)
+Y_1000 = pd.get_dummies(new_file_data_1000['author'])
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.2, random_state=42)
+X_train_1000, X_test_1000, y_train_1000, y_test_1000 = train_test_split(X_1000,Y_1000, test_size=0.2, random_state=42)
 
 print(X_train.shape, y_train.shape)
 print(X_test.shape, y_test.shape)
@@ -485,15 +497,19 @@ model.add(LSTM(100))
 model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-
-epochs =10
-# “batch gradient descent“ batch_size= len(X_train) epochs=200
-batch_size = 32
+model_1000 = Sequential()
+model_1000.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
+model_1000.add(LSTM(100))
+model_1000.add(Dense(6, activation='softmax'))
+model_1000.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
+history_1000 = model.fit(X_train_1000, y_train_1000, validation_data=(X_test_1000, y_test_1000), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
 # save the model to disk
-filename = 'lstm_model_{}.pkl'.format(datetime.date.today())
+filename = 'lstm_model_{}.pkl'.format(datetime.datetime.today().strftime("%d_%m_%Y_%H_%M_%S"))
+filename_1000 = 'lstm_model_1000_{}.pkl'.format(datetime.datetime.today().strftime("%d-%m-%Y_%H_%M_%S"))
 pickle.dump(model, open(filename, 'wb'))
+pickle.dump(model_1000, open(filename_1000, 'wb'))
 
 #
 # # load the model from disk
@@ -502,8 +518,16 @@ pickle.dump(model, open(filename, 'wb'))
 # evaluate the model
 train_acc = model.evaluate(X_train, y_train, verbose=0)
 test_acc = model.evaluate(X_test, y_test, verbose=0)
+print('---------------------------------------500 word samples------------------------------')
 print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc[0],train_acc[1]))
 print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc[0],test_acc[1]))
+
+# evaluate the model
+train_acc_1000 = model_1000.evaluate(X_train_1000, y_train_1000, verbose=0)
+test_acc_1000 = model_1000.evaluate(X_test_1000, y_test_1000, verbose=0)
+print('---------------------------------------1000 word samples------------------------------')
+print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc_1000[0],train_acc_1000[1]))
+print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc_1000[0],test_acc_1000[1]))
 
 # plot training history
 plt.plot(history.history['accuracy'], label='train')
@@ -518,8 +542,10 @@ X_new = pad_sequences(X_new, maxlen=MAX_SEQUENCE_LENGTH)
 
 # Use the model to predict on new data
 predicted = model.predict(X_new)
+predicted_1000= model_1000.predict(X_new)
 # Choose the class with higher probability
 file_data_test.insert(1,'prediction',Y.columns[list(np.argmax(predicted, axis=1))])
+file_data_test.insert(1,'prediction_1000',Y.columns[list(np.argmax(predicted_1000, axis=1))])
 
 # # Compute and print the confusion matrix
 # print(confusion_matrix(y_true, y_pred))
