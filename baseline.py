@@ -105,6 +105,7 @@ new_file_data = split_strings_n_words(file_data,500)
 new_file_data_1000 = split_strings_n_words(file_data,1000)
 
 new_file_data.groupby(['author','title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
+new_file_data_1000.groupby(['author','title']).count().to_csv("number_of_1000_samples_per_title_per_author.csv")
 
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
@@ -143,6 +144,8 @@ def update_df(dataframe, cleaned_documents):
 update_df(new_file_data, cleaned_documents)
 update_df(new_file_data, cleaned_documents_1000)
 update_df(file_data_test,cleaned_documents_test)
+file_data_test.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
+
 
 ###file_data nd clean documents only has non-alpha characters and html removed##
 #to be used for language modelling retains most text info##
@@ -202,40 +205,6 @@ file_data[['text','word_count']].head()
 all_words = ' '.join(file_data['text']).split()
 freq = pd.Series(all_words).value_counts()
 freq[:25]
-
-tagger = pos_tagger()
-
-file_data_pos = []
-for i in file_data.text:
-    file_data_pos.append(tagger.tag_text(text = i,bRemoveStopwords=False))
-postagsfull = []
-
-for text in file_data_pos:
-    postext = ""
-    for token in text:
-        postext = postext+token[1]+" "
-    postagsfull.append(postext)
-cv = CountVectorizer(max_df = 0.8,ngram_range=(1,3))
-vector_count = cv.fit_transform(postagsfull)
-
-tfidf_vectorizer = TfidfTransformer()
-vector_tfidf = tfidf_vectorizer.fit_transform(vector_count)
-
-
-cv = CountVectorizer(
-    max_df=0.8,
-    max_features=10000,
-    ngram_range=(1,3), # only bigram (2,2)
-    strip_accents = 'ascii'
-)
-
-
-X = cv.fit_transform(cleaned_documents)
-
-list(cv.vocabulary_.keys())[:10]
-
-
-
 ############# BAG OF WORDS ##################
 cv_NB = CountVectorizer(max_df=0.9, binary=True)
 
@@ -325,13 +294,13 @@ print(X_train.shape, y_train.shape)
 print(X_test.shape, y_test.shape)
 
 model = Sequential()
-model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
+model.add(Embedding(input_dim=vocab_size, output_dim=100, input_length=X.shape[1]))
 model.add(LSTM(100))
 model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 model_1000 = Sequential()
-model_1000.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
+model_1000.add(Embedding(input_dim=vocab_size, output_dim=100, input_length=X.shape[1]))
 model_1000.add(LSTM(100))
 model_1000.add(Dense(6, activation='softmax'))
 model_1000.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -387,113 +356,17 @@ X_new = pad_sequences(X_new, maxlen=1000)
 predicted = model.predict(X_new)
 predicted_1000= model_1000.predict(X_new)
 # Choose the class with higher probability
-file_data_test.insert(1,'prediction_6',Y.columns[list(np.argmax(predicted, axis=1))])
-file_data_test.insert(1,'prediction_1000_2',Y.columns[list(np.argmax(predicted_1000, axis=1))])
+file_data_test.insert(2,'prediction_6',Y.columns[list(np.argmax(predicted, axis=1))])
+file_data_test.insert(2,'prediction_1000_2',Y.columns[list(np.argmax(predicted_1000, axis=1))])
 
-# # Compute and print the confusion matrix
-# print(confusion_matrix(y_true, y_pred))
-#
-# # Create the performance report
-# print(classification_report(y_true, y_pred, target_names=news_cat))
+y_test.columns
+
+file_data_test.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
 
 
-# # Initialize a CountVectorizer object: count_vectorizer
-# count_vectorizer = CountVectorizer()
-#
-# # Transform the training data using only the 'text' column values: count_train
-# count_train = count_vectorizer.fit_transform(X_train)
-#
-# # Transform the test data using only the 'text' column values: count_test
-# count_test = count_vectorizer.transform(X_test)
-#
-# # Print the first 10 features of the count_vectorizer
-# print(count_vectorizer.get_feature_names()[:10])
-#
-#
-# # Initialize a TfidfVectorizer object: tfidf_vectorizer
-# tfidf_vectorizer = TfidfVectorizer( max_df=0.7)
-#
-# # Transform the training data: tfidf_train
-# tfidf_train = tfidf_vectorizer.fit_transform(X_train)
-#
-# # Transform the test data: tfidf_test
-# tfidf_test = tfidf_vectorizer.transform(X_test)
-#
-# # Print the first 10 features
-# print(tfidf_vectorizer.get_feature_names()[:10])
-#
-# # Print the first 5 vectors of the tfidf training data
-# print(tfidf_train.A[:5])
-#
-# # Create the CountVectorizer DataFrame: count_df
-# count_df = pd.DataFrame(count_train.A, columns=count_vectorizer.get_feature_names())
-#
-# # Create the TfidfVectorizer DataFrame: tfidf_df
-# tfidf_df = pd.DataFrame(tfidf_train.A, columns=tfidf_vectorizer.get_feature_names())
-#
-# # Print the head of count_df
-# print(count_df.head())
-#
-# # Print the head of tfidf_df
-# print(tfidf_df.head())
-#
-# # Calculate the difference in columns: difference
-# difference = set(count_df.columns) - set(tfidf_df.columns)
-# print(difference)
-#
-# # Check whether the DataFrames are equal
-# print(count_df.equals(tfidf_df))
-#
-#
-# # Instantiate a Multinomial Naive Bayes classifier: nb_classifier
-# nb_classifier = MultinomialNB()
-#
-# # Fit the classifier to the training data
-# nb_classifier.fit(count_train,y_train)
-#
-# # Create the predicted tags: pred
-# pred = nb_classifier.predict(count_test)
-#
-# # Calculate the accuracy score: score
-# score = metrics.accuracy_score(y_test,pred)
-# print(score)
-#
-# # Calculate the confusion matrix: cm
-# cm = metrics.confusion_matrix(y_test,pred)
-# print(cm)
-#
-# # Create the list of alphas: alphas
-# alphas = np.arange(0,1,step=0.1)
-#
-# # Define train_and_predict()
-# def train_and_predict(alpha):
-#     # Instantiate the classifier: nb_classifier
-#     nb_classifier = MultinomialNB(alpha=alpha)
-#     # Fit to the training data
-#     nb_classifier.fit(tfidf_train, y_train)
-#     # Predict the labels: pred
-#     pred = nb_classifier.predict(tfidf_test)
-#     # Compute accuracy: score
-#     score = metrics.accuracy_score(y_test,pred)
-#     return score
-#
-# # Iterate over the alphas and print the corresponding score
-# for alpha in alphas:
-#     print('Alpha: ', alpha)
-#     print('Score: ', train_and_predict(alpha))
-#
-#
-# # Get the class labels: class_labels
-# class_labels = nb_classifier.classes_
-#
-# # Extract the features: feature_names
-# feature_names = tfidf_vectorizer.get_feature_names()
-#
-# # Zip the feature names together with the coefficient array and sort by weights: feat_with_weights
-# feat_with_weights = sorted(zip(nb_classifier.coef_[0], feature_names))
-#
-# # Print the first class label and the top 20 feat_with_weights entries
-# print(class_labels[0], feat_with_weights[:20])
-#
-# # Print the second class label and the bottom 20 feat_with_weights entries
-# print(class_labels[1], feat_with_weights[-20:])
+# Compute and print the confusion matrix
+print(confusion_matrix(y_true, y_pred)),
+
+# Create the performance report
+print(classification_report(y_true, y_pred, target_names=news_cat))
+
