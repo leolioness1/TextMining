@@ -234,171 +234,7 @@ X = cv.fit_transform(cleaned_documents)
 
 list(cv.vocabulary_.keys())[:10]
 
-def plot_frequencies(top_df):
-    """
-    Function that receives a dataframe from the "get_top_n_grams" function
-    and plots the frequencies in a bar plot.
-    """
-    x_labels = top_df["Ngram"][:30]
-    y_pos = np.arange(len(x_labels))
-    values = top_df["Freq"][:30]
-    plt.bar(y_pos, values, align='center', alpha=0.5)
-    plt.xticks(y_pos, x_labels)
-    plt.ylabel('Frequencies')
-    plt.title('Words')
-    plt.xticks(rotation=90)
-    plt.show()
 
-
-########## n grams ##################
-
-def get_top_n_grams(corpus, top_k, n):
-
-    vec = CountVectorizer(ngram_range=(n, n), max_features=2000).fit(corpus)
-
-    bag_of_words = vec.transform(corpus)
-
-    sum_words = bag_of_words.sum(axis=0)
-
-    words_freq = []
-    for word, idx in vec.vocabulary_.items():
-        words_freq.append((word, sum_words[0, idx]))
-
-    words_freq = sorted(words_freq, key=lambda x: x[1], reverse=True)
-    top_df = pd.DataFrame(words_freq[:top_k])
-    top_df.columns = ["Ngram", "Freq"]
-
-    return top_df
-
-top_df = get_top_n_grams(cleaned_documents, top_k=20, n=2)
-
-top_df.head(10)
-
-plot_frequencies(top_df)
-
-
-# #EMBEDDINGS
-#
-# def tokenize_corpus(corpus):
-#     tokens = [x.split() for x in corpus]
-#     return tokens
-#
-# tokenized_corpus = tokenize_corpus(cleaned_documents)
-# vocabulary = {word for doc in tokenized_corpus for word in doc}
-# word2idx = {w:idx for (idx, w) in enumerate(vocabulary)}
-#
-# def build_training(tokenized_corpus, word2idx, window_size=2):
-#     window_size = 2
-#     idx_pairs = []
-#
-#     # for each sentence
-#     for sentence in tokenized_corpus:
-#         indices = [word2idx[word] for word in sentence]
-#         # for each word, threated as center word
-#         for center_word_pos in range(len(indices)):
-#             # for each window position
-#             for w in range(-window_size, window_size + 1):
-#                 context_word_pos = center_word_pos + w
-#                 # make soure not jump out sentence
-#                 if context_word_pos < 0 or \
-#                         context_word_pos >= len(indices) or \
-#                         center_word_pos == context_word_pos:
-#                     continue
-#                 context_word_idx = indices[context_word_pos]
-#                 idx_pairs.append((indices[center_word_pos], context_word_idx))
-#     return np.array(idx_pairs)
-#
-#
-# training_pairs = build_training(tokenized_corpus, word2idx)
-#
-#
-# def get_onehot_vector(word_idx, vocabulary):
-#     x = torch.zeros(len(vocabulary)).float()
-#     x[word_idx] = 1.0
-#     return x
-#
-#
-# def Skip_Gram(training_pairs, vocabulary, embedding_dims=5, learning_rate=0.001, epochs=10):
-#     torch.manual_seed(3)
-#     W1 = Variable(torch.randn(embedding_dims, len(vocabulary)).float(), requires_grad=True)
-#     W2 = Variable(torch.randn(len(vocabulary), embedding_dims).float(), requires_grad=True)
-#     losses = []
-#     for epo in range(epochs):
-#         loss_val = 0
-#         for input_word, target in training_pairs:
-#             x = Variable(get_onehot_vector(input_word, vocabulary)).float()
-#             y_true = Variable(torch.from_numpy(np.array([target])).long())
-#
-#             # Matrix multiplication to obtain the input word embedding
-#             z1 = torch.matmul(W1, x)
-#
-#             # Matrix multiplication to obtain the z score for each word
-#             z2 = torch.matmul(W2, z1)
-#
-#             # Apply Log and softmax functions
-#             log_softmax = F.log_softmax(z2, dim=0)
-#             # Compute the negative-log-likelihood loss
-#             loss = F.nll_loss(log_softmax.view(1, -1), y_true)
-#             loss_val += loss.item()
-#
-#             # compute the gradient in function of the error
-#             loss.backward()
-#
-#             # Update your embeddings
-#             W1.data -= learning_rate * W1.grad.data
-#             W2.data -= learning_rate * W2.grad.data
-#
-#             W1.grad.data.zero_()
-#             W2.grad.data.zero_()
-#
-#         losses.append(loss_val / len(training_pairs))
-#
-#     return W1, W2, losses
-#
-# W1, W2, losses = Skip_Gram(training_pairs, word2idx, epochs=100)
-#
-#
-# def plot_loss(loss):
-#     x_axis = [epoch+1 for epoch in range(len(loss))]
-#     plt.plot(x_axis, loss, '-g', linewidth=1, label='Train')
-#     plt.xlabel("Epochs")
-#     plt.ylabel("Loss")
-#     plt.legend()
-#     plt.show()
-#
-# plot_loss(losses)
-
-
-# # TFIDF
-#
-# tfidf_vectorizer = TfidfTransformer()
-# tfidf_vectorizer.fit(X)
-# # get feature names
-# feature_names = cv.get_feature_names()
-#
-# # fetch document for which keywords needs to be extracted
-# doc = cleaned_documents[5]  # 532
-#
-# # generate tf-idf for the given document
-# tf_idf_vector = tfidf_vectorizer.transform(cv.transform([doc]))
-#
-# tf_idf_vector.toarray()
-#
-#
-# def extract_feature_scores(feature_names, document_vector):
-#     """
-#     Function that creates a dictionary with the TF-IDF score for each feature.
-#     :param feature_names: list with all the feature words.
-#     :param document_vector: vector containing the extracted features for a specific document
-#
-#     :return: returns a sorted dictionary "feature":"score".
-#     """
-#     feature2score = {}
-#     for i in range(len(feature_names)):
-#         feature2score[feature_names[i]] = document_vector[0][i]
-#     return sorted(feature2score.items(), key=lambda kv: kv[1], reverse=True)
-#
-# extract_feature_scores(feature_names, tf_idf_vector.toarray())[:10]
 
 ############# BAG OF WORDS ##################
 cv_NB = CountVectorizer(max_df=0.9, binary=True)
@@ -444,32 +280,29 @@ nb_classifier.fit(X_train,y_train)
 # Create the predicted tags: pred
 predNB = nb_classifier.predict(X_test)
 predNB
-print (classification_report(predNB, y_test))
+
+print(classification_report(predNB, y_test))
+
+#EMBEDDINGS
+
+def tokenize_corpus(corpus):
+    tokens = [x.split() for x in corpus]
+    return tokens
+
+tokenized_corpus = tokenize_corpus(cleaned_documents)
+vocabulary = {word for doc in tokenized_corpus for word in doc}
+vocab_size = len(vocabulary)
 
 
-# # Instantiate the Portuguese model: nlp
-# nlp = pt_core_news_sm.load()
-
-# article = cleaned_documents[0]
-# # Create a new document: doc
-# doc = nlp(article)
-
-# # Print all of the found entities and their labels
-# for ent in doc.ents:
-#     print(ent.label_, ent.text)
-
-# The maximum number of words to be used. (most frequent)
+# The maximum number of words to be used. (most frequent) or could use whole vocab size
 MAX_NB_WORDS = 60000
-# Max number of words in each text.
-MAX_SEQUENCE_LENGTH = 1000
-# This is fixed.
-EMBEDDING_DIM = 100
-epochs =10
+
+epochs =8
 # “batch gradient descent“ batch_size= len(X_train) epochs=200
 batch_size = 32
 
-tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True)
-tokenizer_1000= Tokenizer(num_words=MAX_NB_WORDS, lower=True)
+tokenizer = Tokenizer()
+tokenizer_1000= Tokenizer()
 tokenizer.fit_on_texts(new_file_data.text.values)
 tokenizer_1000.fit_on_texts(new_file_data_1000.text.values)
 word_index = tokenizer.word_index
@@ -479,32 +312,33 @@ print('Found %s unique tokens.' % len(word_index))
 # Change text for numerical ids and pad
 X = tokenizer.texts_to_sequences(new_file_data.text)
 X_1000 = tokenizer_1000.texts_to_sequences((new_file_data_1000.text))
-X_1000 = pad_sequences(X_1000,maxlen=MAX_SEQUENCE_LENGTH)
-X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
+X_1000 = pad_sequences(X_1000,maxlen=1000)
+X = pad_sequences(X, maxlen=500)
 print('Shape of data tensor:', X.shape)
 
 Y = pd.get_dummies(new_file_data['author'])
 Y_1000 = pd.get_dummies(new_file_data_1000['author'])
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.2, random_state=42)
-X_train_1000, X_test_1000, y_train_1000, y_test_1000 = train_test_split(X_1000,Y_1000, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.2, random_state=42, stratify=Y)
+X_train_1000, X_test_1000, y_train_1000, y_test_1000 = train_test_split(X_1000,Y_1000, test_size=0.2, random_state=42,stratify=Y_1000)
 
 print(X_train.shape, y_train.shape)
 print(X_test.shape, y_test.shape)
 
 model = Sequential()
-model.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
+model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
 model.add(LSTM(100))
 model.add(Dense(6, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 model_1000 = Sequential()
-model_1000.add(Embedding(MAX_NB_WORDS, EMBEDDING_DIM, input_length=X.shape[1]))
+model_1000.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
 model_1000.add(LSTM(100))
 model_1000.add(Dense(6, activation='softmax'))
 model_1000.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-history = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
-history_1000 = model.fit(X_train_1000, y_train_1000, validation_data=(X_test_1000, y_test_1000), epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
+history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
+history_1000 = model_1000.fit(X_train_1000, y_train_1000, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
+
 # save the model to disk
 filename = 'lstm_model_{}.pkl'.format(datetime.datetime.today().strftime("%d_%m_%Y_%H_%M_%S"))
 filename_1000 = 'lstm_model_1000_{}.pkl'.format(datetime.datetime.today().strftime("%d-%m-%Y_%H_%M_%S"))
@@ -529,23 +363,32 @@ print('---------------------------------------1000 word samples-----------------
 print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc_1000[0],train_acc_1000[1]))
 print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc_1000[0],test_acc_1000[1]))
 
+
 # plot training history
 plt.plot(history.history['accuracy'], label='train')
 plt.plot(history.history['val_accuracy'], label='test')
 plt.legend()
+plt.title("500 sample")
+plt.show()
+
+# plot training history
+plt.plot(history_1000.history['accuracy'], label='train')
+plt.plot(history_1000.history['val_accuracy'], label='test')
+plt.legend()
+plt.title("500 sample")
 plt.show()
 
 # Change text for numerical ids and pad
 X_new = tokenizer.texts_to_sequences(file_data_test.text)
-X_new = pad_sequences(X_new, maxlen=MAX_SEQUENCE_LENGTH)
+X_new = pad_sequences(X_new, maxlen=1000)
 
 
 # Use the model to predict on new data
 predicted = model.predict(X_new)
 predicted_1000= model_1000.predict(X_new)
 # Choose the class with higher probability
-file_data_test.insert(1,'prediction',Y.columns[list(np.argmax(predicted, axis=1))])
-file_data_test.insert(1,'prediction_1000',Y.columns[list(np.argmax(predicted_1000, axis=1))])
+file_data_test.insert(1,'prediction_6',Y.columns[list(np.argmax(predicted, axis=1))])
+file_data_test.insert(1,'prediction_1000_2',Y.columns[list(np.argmax(predicted_1000, axis=1))])
 
 # # Compute and print the confusion matrix
 # print(confusion_matrix(y_true, y_pred))
