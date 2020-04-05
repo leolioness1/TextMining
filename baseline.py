@@ -142,8 +142,9 @@ def update_df(dataframe, cleaned_documents):
     dataframe['text'] = cleaned_documents
 
 update_df(new_file_data, cleaned_documents)
-update_df(new_file_data, cleaned_documents_1000)
+update_df(new_file_data_1000, cleaned_documents_1000)
 update_df(file_data_test,cleaned_documents_test)
+
 file_data_test.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
 
 
@@ -205,55 +206,50 @@ file_data[['text','word_count']].head()
 all_words = ' '.join(file_data['text']).split()
 freq = pd.Series(all_words).value_counts()
 freq[:25]
-############# BAG OF WORDS ##################
-cv_NB = CountVectorizer(max_df=0.9, binary=True)
-
-X_NB = cv_NB.fit_transform(stem_file_data['text'])
-
-
-cv_KNN = CountVectorizer(
-    max_df=0.8,
-    max_features=1000,
-    ngram_range=(1,3) # only bigram (2,2)
-)
-
-X_KNN = cv_KNN.fit_transform(stem_file_data['text'])
-
-
-y = np.array(stem_file_data["author"])
 
 
 ################## KNN ######################
 
-X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
+def KNN(train_df):
+    cv_KNN = CountVectorizer(
+        max_df=0.8,
+        max_features=1000,
+        ngram_range=(1,3) # only bigram (2,2)
+    )
+    X_KNN = cv_KNN.fit_transform(train_df['text'])
 
-modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
-                                          metric='cosine', metric_params=None, n_jobs=1)
-modelknn.fit(X_train,y_train)
-modelknn.classes_
+    y = np.array(train_df["author"])
 
+    X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
 
-predKNN = modelknn.predict(X_test)
-predKNN
-print (classification_report(predKNN, y_test))
+    modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
+                                              metric='cosine', metric_params=None, n_jobs=1)
+    modelknn.fit(X_train,y_train)
+    modelknn.classes_
+    predKNN = modelknn.predict(X_test)
+    return predKNN, print(classification_report(predKNN, y_test))
+
+KNN(lemma_file_data)
 
 ################ Naive Bayes #################
+def NB(train_df):
+    cv_NB = CountVectorizer(max_df=0.9, binary=True)
 
-X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.1, random_state = 42)
+    X_NB = cv_NB.fit_transform(train_df['text'])
+    y = np.array(train_df["author"])
 
-nb_classifier = MultinomialNB()
+    X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.1, random_state = 42)
+    nb_classifier = MultinomialNB()
+    # Fit the classifier to the training data
+    nb_classifier.fit(X_train,y_train)
 
-# Fit the classifier to the training data
-nb_classifier.fit(X_train,y_train)
+    # Create the predicted tags: pred
+    predNB = nb_classifier.predict(X_test)
+    return predNB, print(classification_report(predNB, y_test))
 
-# Create the predicted tags: pred
-predNB = nb_classifier.predict(X_test)
-predNB
-
-print(classification_report(predNB, y_test))
+NB(lemma_file_data)
 
 #EMBEDDINGS
-
 def tokenize_corpus(corpus):
     tokens = [x.split() for x in corpus]
     return tokens
@@ -264,109 +260,58 @@ vocab_size = len(vocabulary)
 
 
 # The maximum number of words to be used. (most frequent) or could use whole vocab size
-MAX_NB_WORDS = 60000
+def LSTM_model(train_df,test_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
 
-epochs =8
-# “batch gradient descent“ batch_size= len(X_train) epochs=200
-batch_size = 32
+    tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True)
+    tokenizer.fit_on_texts(train_df.text.values)
+    word_index = tokenizer.word_index
+    print('Found %s unique tokens.' % len(word_index))
 
-tokenizer = Tokenizer()
-tokenizer_1000= Tokenizer()
-tokenizer.fit_on_texts(new_file_data.text.values)
-tokenizer_1000.fit_on_texts(new_file_data_1000.text.values)
-word_index = tokenizer.word_index
-print('Found %s unique tokens.' % len(word_index))
+    # Change text for numerical ids and pad
+    X = tokenizer.texts_to_sequences(train_df.text)
+    X = pad_sequences(X, maxlen=MAX_LEN)
+    print('Shape of data tensor:', X.shape)
+    Y = pd.get_dummies(train_df['author'])
+    X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.2, random_state=42, stratify=Y)
+    print(X_train.shape, y_train.shape)
+    print(X_test.shape, y_test.shape)
+    model = Sequential()
+    model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
+    model.add(LSTM(100))
+    model.add(Dense(6, activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
+    history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
 
-# Change text for numerical ids and pad
-X = tokenizer.texts_to_sequences(new_file_data.text)
-X_1000 = tokenizer_1000.texts_to_sequences((new_file_data_1000.text))
-X_1000 = pad_sequences(X_1000,maxlen=1000)
-X = pad_sequences(X, maxlen=500)
-print('Shape of data tensor:', X.shape)
+    # save the model to disk
+    filename = 'lstm_model_{}_{}.pkl'.format(MAX_LEN,datetime.datetime.today().strftime("%d_%m_%Y_%H_%M_%S"))
+    pickle.dump(model, open(filename, 'wb'))
+    # # load the model from disk
+    # loaded_model = pickle.load(open(filename, 'rb'))
+    # evaluate the model
+    train_acc = model.evaluate(X_train, y_train, verbose=0)
+    test_acc = model.evaluate(X_test, y_test, verbose=0)
+    print('---------------------------------------{} word samples------------------------------').format(MAX_LEN)
+    print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc[0],train_acc[1]))
+    print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc[0],test_acc[1]))
 
-Y = pd.get_dummies(new_file_data['author'])
-Y_1000 = pd.get_dummies(new_file_data_1000['author'])
-X_train, X_test, y_train, y_test = train_test_split(X,Y, test_size=0.2, random_state=42, stratify=Y)
-X_train_1000, X_test_1000, y_train_1000, y_test_1000 = train_test_split(X_1000,Y_1000, test_size=0.2, random_state=42,stratify=Y_1000)
+    # plot training history
+    plt.plot(history.history['accuracy'], label='train')
+    plt.plot(history.history['val_accuracy'], label='test')
+    plt.legend()
+    plt.title("{} sample".format(MAX_LEN))
+    plt.show()
 
-print(X_train.shape, y_train.shape)
-print(X_test.shape, y_test.shape)
+    # Change text for numerical ids and pad
+    X_new = tokenizer.texts_to_sequences(test_df.text)
+    X_new = pad_sequences(X_new, maxlen=MAX_LEN)
 
-model = Sequential()
-model.add(Embedding(input_dim=vocab_size, output_dim=100, input_length=X.shape[1]))
-model.add(LSTM(100))
-model.add(Dense(6, activation='softmax'))
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # Use the model to predict on new data
+    predicted = model.predict(X_new)
+    # Choose the class with higher probability
+    test_df.insert(2,'prediction',Y.columns[list(np.argmax(predicted, axis=1))])
+    # Create the performance report
+    #print(classification_report(y_true, y_pred, target_names=news_cat))
+    return test_df.head()
 
-model_1000 = Sequential()
-model_1000.add(Embedding(input_dim=vocab_size, output_dim=100, input_length=X.shape[1]))
-model_1000.add(LSTM(100))
-model_1000.add(Dense(6, activation='softmax'))
-model_1000.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-
-history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
-history_1000 = model_1000.fit(X_train_1000, y_train_1000, epochs=epochs, batch_size=batch_size,callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
-
-# save the model to disk
-filename = 'lstm_model_{}.pkl'.format(datetime.datetime.today().strftime("%d_%m_%Y_%H_%M_%S"))
-filename_1000 = 'lstm_model_1000_{}.pkl'.format(datetime.datetime.today().strftime("%d-%m-%Y_%H_%M_%S"))
-pickle.dump(model, open(filename, 'wb'))
-pickle.dump(model_1000, open(filename_1000, 'wb'))
-
-#
-# # load the model from disk
-# loaded_model = pickle.load(open(filename, 'rb'))
-
-# evaluate the model
-train_acc = model.evaluate(X_train, y_train, verbose=0)
-test_acc = model.evaluate(X_test, y_test, verbose=0)
-print('---------------------------------------500 word samples------------------------------')
-print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc[0],train_acc[1]))
-print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc[0],test_acc[1]))
-
-# evaluate the model
-train_acc_1000 = model_1000.evaluate(X_train_1000, y_train_1000, verbose=0)
-test_acc_1000 = model_1000.evaluate(X_test_1000, y_test_1000, verbose=0)
-print('---------------------------------------1000 word samples------------------------------')
-print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc_1000[0],train_acc_1000[1]))
-print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc_1000[0],test_acc_1000[1]))
-
-
-# plot training history
-plt.plot(history.history['accuracy'], label='train')
-plt.plot(history.history['val_accuracy'], label='test')
-plt.legend()
-plt.title("500 sample")
-plt.show()
-
-# plot training history
-plt.plot(history_1000.history['accuracy'], label='train')
-plt.plot(history_1000.history['val_accuracy'], label='test')
-plt.legend()
-plt.title("500 sample")
-plt.show()
-
-# Change text for numerical ids and pad
-X_new = tokenizer.texts_to_sequences(file_data_test.text)
-X_new = pad_sequences(X_new, maxlen=1000)
-
-
-# Use the model to predict on new data
-predicted = model.predict(X_new)
-predicted_1000= model_1000.predict(X_new)
-# Choose the class with higher probability
-file_data_test.insert(2,'prediction_6',Y.columns[list(np.argmax(predicted, axis=1))])
-file_data_test.insert(2,'prediction_1000_2',Y.columns[list(np.argmax(predicted_1000, axis=1))])
-
-y_test.columns
-
-file_data_test.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
-
-
-# Compute and print the confusion matrix
-print(confusion_matrix(y_true, y_pred)),
-
-# Create the performance report
-print(classification_report(y_true, y_pred, target_names=news_cat))
-
+LSTM_model(new_file_data,file_data_test,500,30000,8,32)
