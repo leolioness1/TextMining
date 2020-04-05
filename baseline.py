@@ -291,7 +291,7 @@ def LSTM_model(train_df,test_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     # evaluate the model
     train_acc = model.evaluate(X_train, y_train, verbose=0)
     test_acc = model.evaluate(X_test, y_test, verbose=0)
-    print('---------------------------------------{} word samples------------------------------').format(MAX_LEN)
+    print('---------------------------------------{} word samples------------------------------'.format(MAX_LEN))
     print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc[0],train_acc[1]))
     print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc[0],test_acc[1]))
 
@@ -310,6 +310,7 @@ def LSTM_model(train_df,test_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     predicted = model.predict(X_new)
     # Choose the class with higher probability
     test_df.insert(2,'prediction',Y.columns[list(np.argmax(predicted, axis=1))])
+
     # Create the performance report
     #print(classification_report(y_true, y_pred, target_names=news_cat))
     return test_df.head()
