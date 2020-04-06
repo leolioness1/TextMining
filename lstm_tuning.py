@@ -69,13 +69,13 @@ for file in os.listdir(root):
             except Exception as e:
                 print("{} generated an error: \n {}".format(os.path.join(root, name,file)),e)
 
-file_data = (pd.DataFrame.from_dict(file_name_and_text, orient='index')
+file_data_raw = (pd.DataFrame.from_dict(file_name_and_text, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'author', 0: 'text'}))
 
 
 root_test = os.getcwd() + '\\Corpora\\test'
 
-file_name_and_text_test={}
+file_name_and_text_new={}
 for file in os.listdir(root_test):
     name = os.path.splitext(file)[0]
     print('{}/{}'.format(root_test,name))
@@ -84,11 +84,11 @@ for file in os.listdir(root_test):
         if file.endswith(".txt"):
             try:
                 with open(os.path.join(root_test, name,file), "r", encoding='utf-8') as target_file:
-                    file_name_and_text_test['{}/{}'.format(name,file)] = target_file.read()
+                    file_name_and_text_new['{}/{}'.format(name,file)] = target_file.read()
             except Exception as e:
                 print("{} generated an error: \n {}".format(os.path.join(root_test, name,file)),e)
 
-file_data_test = (pd.DataFrame.from_dict(file_name_and_text_test, orient='index')
+file_data_new = (pd.DataFrame.from_dict(file_name_and_text_new, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
 
 
@@ -102,11 +102,11 @@ def split_strings_n_words(df, n):
     new_df.rename(columns={"index":"text"}, inplace=True)
     return new_df
 
-new_file_data = split_strings_n_words(file_data,500)
-new_file_data_1000 = split_strings_n_words(file_data,1000)
+file_data = split_strings_n_words(file_data_raw,500)
+file_data_1000 = split_strings_n_words(file_data_raw,1000)
 
-new_file_data.groupby(['author','title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
-new_file_data_1000.groupby(['author','title']).count().to_csv("number_of_1000_samples_per_title_per_author.csv")
+file_data.groupby(['author','title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
+file_data_1000.groupby(['author','title']).count().to_csv("number_of_1000_samples_per_title_per_author.csv")
 
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
@@ -135,19 +135,37 @@ def clean_data(dataframe):
         processed_corpus.append(text)
     return processed_corpus
 
-cleaned_documents= clean_data(new_file_data)
-cleaned_documents_1000= clean_data(new_file_data_1000)
-cleaned_documents_test=clean_data(file_data_test)
 
 def update_df(dataframe, cleaned_documents):
     dataframe['text'] = cleaned_documents
 
-update_df(new_file_data, cleaned_documents)
-update_df(new_file_data_1000, cleaned_documents_1000)
-update_df(file_data_test,cleaned_documents_test)
+#create test and train samples for both 500 word samples split and 1000 word sample split
+#these titles were chosen because their wordcount corresponded to aprox. 10% of the words for each author
+test=['pg22801.txt','pg27364.txt','pg25641.txt','O Setimo Selo - Jose Rodrigues dos Santos.txt','O Homem Duplicado - Jose Saramago.txt','ABelaHistoria.txt']
 
-file_data_test.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
 
+cleaned_documents = clean_data(file_data)
+update_df(file_data, cleaned_documents)
+file_data_subset = file_data.loc[~file_data.title.isin(test)].reset_index()
+file_data_test = file_data.loc[file_data.title.isin(test)].reset_index()
+y_train = np.array(file_data['author'].loc[~file_data.title.isin(test)])
+y_test = np.array(file_data['author'].loc[file_data.title.isin(test)])
+
+cleaned_documents_1000= clean_data(file_data_1000)
+update_df(file_data_1000, cleaned_documents_1000)
+
+file_data_subset_1000 = file_data_1000.loc[~file_data_1000.title.isin(test)].reset_index()
+file_data_test_1000 = file_data_1000.loc[file_data_1000.title.isin(test)].reset_index()
+y_train_1000 = np.array(file_data_1000['author'].loc[~file_data_1000.title.isin(test)])
+y_test_1000 = np.array(file_data_1000['author'].loc[file_data_1000.title.isin(test)])
+
+
+cleaned_documents_new=clean_data(file_data_new)
+update_df(file_data_new,cleaned_documents_new)
+file_data_new.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
+file_data_new.insert(2,'predicted_500',value=None)
+file_data_new.insert(3,'predicted_1000',value=None)
+file_data_new.insert(4,'pred_KNN',value=None)
 
 ###file_data nd clean documents only has non-alpha characters and html removed##
 #to be used for language modelling retains most text info##
@@ -165,15 +183,26 @@ def stem_stop_words (dataframe):
 
 ###stem_file_data and stem_documents also has stemming and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
+def generate_stem_df(train_df,test_df,new_df):
+    stem_documents = stem_stop_words(train_df)
+    stem_documents_test = stem_stop_words(test_df)
+    stem_documents_new = stem_stop_words(new_df)
 
-stem_documents = stem_stop_words(new_file_data)
-stem_documents_test = stem_stop_words(file_data_test)
+    stem_file_data = train_df.copy(deep=True)
+    stem_file_data_test = test_df.copy(deep=True)
+    stem_file_data_new = new_df.copy(deep=True)
+    stem_file_data['text'] = stem_documents
+    stem_file_data_test['text'] = stem_documents_test
+    stem_file_data_new['text'] = stem_documents_new
 
-stem_file_data = new_file_data.copy(deep=True)
-stem_file_data_test = file_data_test.copy(deep=True)
-stem_file_data['text'] = stem_documents
-stem_file_data_test['text'] = stem_documents_test
+    return stem_file_data,stem_file_data_test,stem_file_data_new
 
+#uses 500 word sample split by default
+
+stem_file_data,stem_file_data_test,stem_file_data_new = generate_stem_df(file_data_subset,file_data_test,file_data_new)
+
+###lemma_file_data and lemma_documents also has lemmatisation and stopwords removed##
+#to be used for NaiveBayes etc retains less text info##
 
 def lemma_stop_words (dataframe):
     processed_corpus = []
@@ -186,56 +215,59 @@ def lemma_stop_words (dataframe):
         processed_corpus.append(text)
     return processed_corpus
 
-###lemma_file_data and lemma_documents also has lemmatisation and stopwords removed##
-#to be used for NaiveBayes etc retains less text info##
+def generate_lemma_df(train_df,test_df,new_df):
+    lemma_documents = lemma_stop_words(train_df)
+    lemma_documents_test = lemma_stop_words(test_df)
+    lemma_documents_new = lemma_stop_words(new_df)
 
-lemma_documents = lemma_stop_words(new_file_data)
-lemma_documents_test = lemma_stop_words(file_data_test)
+    lemma_file_data = train_df.copy(deep=True)
+    lemma_file_data_test = test_df.copy(deep=True)
+    lemma_file_data_new = new_df.copy(deep=True)
+    lemma_file_data['text'] = lemma_documents
+    lemma_file_data_test['text'] = lemma_documents_test
+    lemma_file_data_new['text'] = lemma_documents_new
 
-lemma_file_data = new_file_data.copy(deep=True)
-lemma_file_data_test = file_data_test.copy(deep=True)
-lemma_file_data['text'] = lemma_documents
-lemma_file_data_test['text'] = lemma_documents_test
+    return lemma_file_data,lemma_file_data_test,lemma_file_data_new
+
+#uses 500 word sample split by default
+
+lemma_file_data,lemma_file_data_test,lemma_file_data_new = generate_lemma_df(file_data_subset,file_data_test,file_data_new)
 
 # test = ['pg22801.txt','pg26103.txt','pg25641.txt','Furia Divina - Jose Rodrigues dos Santos.txt',
 #        'O Homem Duplicado - Jose Saramago.txt','UltimaHistoria.txt']pg22801.txt
-test=['pg22801.txt','pg27364.txt','pg25641.txt','O Setimo Selo - Jose Rodrigues dos Santos.txt','O Homem Duplicado - Jose Saramago.txt','ABelaHistoria.txt']
-
-new_file_data_subset = new_file_data.loc[~new_file_data.title.isin(test)]
-new_file_data_test = new_file_data.loc[new_file_data.title.isin(test)]
-
-y_train = np.array(new_file_data['author'].loc[~new_file_data.title.isin(test)])
-y_test = np.array(new_file_data['author'].loc[new_file_data.title.isin(test)])
-
 
 
 ################## KNN ######################
 
-def KNN(train_df,test_df):
+def KNN(train_df,test_df,new_df):
     cv_KNN = CountVectorizer(
         max_df=0.8,
         max_features=1000,
         ngram_range=(1,3) # only bigram (2,2)
     )
-    X_KNN = cv_KNN.fit_transform(train_df['text'])
 
-    y = np.array(train_df["author"])
+    # X_KNN = cv_KNN.fit_transform(train_df['text'])
+    # y = np.array(train_df["author"])
+    # X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
 
-    X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
+    X_KNN_train = cv_KNN.fit_transform(train_df['text'])
+    X_test_train = cv_KNN.fit_transform(test_df['text'])
 
-    modelknn = KNeighborsClassifier(n_neighbors=5, weights='distance', algorithm='brute', leaf_size=30, p=2,
+    modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
                                               metric='cosine', metric_params=None, n_jobs=1)
-    modelknn.fit(X_train, y_train)
-
-    X_KNN_new = cv_KNN.fit_transform(test_df['text'])
-    predKNN = modelknn.predict(X_test)
+    modelknn.fit(X_KNN_train, y_train)
+    # pred on test samples
+    predKNN = modelknn.predict(X_test_train)
     print(classification_report(y_test,predKNN))
+    # pred on new samples
+    X_KNN_new = cv_KNN.fit_transform(new_df['text'])
     predKNN_new = modelknn.predict(X_KNN_new)
-    file_data_test["pred_KNN"] = predKNN_new
-    print(classification_report(file_data_test['y_true'],predKNN_new))
+    new_df["pred_KNN"] = predKNN_new
+    print(classification_report(new_df['y_true'],predKNN_new))
     return predKNN_new
 
-KNN(lemma_file_data,lemma_file_data_test)
+KNN(lemma_file_data,lemma_file_data_test, lemma_file_data_new)   #could change for stem dfs but worst results
+
 
 # ################ Naive Bayes #################
 # def NB(train_df,test_df):
@@ -272,7 +304,7 @@ print(vocab_size)
 # The maximum number of words to be used. (most frequent) or could use whole vocab size
 def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
 
-    tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True)
+    tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True) # The maximum number of words to be used. (most frequent) or could use whole vocab size
     tokenizer.fit_on_texts(train_df.text.values)
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
@@ -282,6 +314,7 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     X = pad_sequences(X, maxlen=MAX_LEN)
     print('Shape of data tensor:', X.shape)
     Y = pd.get_dummies(train_df['author'])
+    y_test =pd.get_dummies(test_df['author'].loc[test_df.title.isin(test)])
     X_train, X_dev, y_train, y_dev = train_test_split(X, Y, test_size=0.1, random_state=7, stratify=Y)
     print(X_train.shape, y_train.shape)
     print(X_dev.shape, y_dev.shape)
@@ -298,6 +331,7 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
         # Clear model, and create it
     model = Sequential()
     model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
+    model.add(SpatialDropout1D(0.2))
     model.add(LSTM(100))
     model.add(Dense(6, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -321,7 +355,6 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     X_test = tokenizer.texts_to_sequences(test_df.text)
     X_test = pad_sequences(X_test, maxlen=MAX_LEN)
     test_acc = model.evaluate(X_test, y_test, verbose=0)
-    print('---------------------------------------{} word samples------------------------------'.format(MAX_LEN))
     print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc[0],train_acc[1]))
     print('Test set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(test_acc[0],test_acc[1]))
 
@@ -339,12 +372,11 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     # Use the model to predict on new data
     predicted = model.predict(X_new)
 
-    # Choose the class with higher probability
-    test_df.drop('prediction',inplace=True)
-    test_df.insert(2,'prediction',Y.columns[list(np.argmax(predicted, axis=1))])
+    # # Choose the class with higher probability
+    new_df['prediction']=Y.columns[list(np.argmax(predicted, axis=1))]
 
     # Create the performance report
-    print(classification_report(file_data_test['y_true'], predicted, target_names=Y.columns))
-    return test_df.head()
+    print(classification_report(new_df['y_true'], new_df['prediction'], target_names=Y.columns))
+    return predicted
 
-LSTM_model(new_file_data_subset, new_file_data_test, file_data_test,1000,90000,5,32)
+pred=LSTM_model(file_data_subset_1000, file_data_test_1000, file_data_new,1000,90000,5,32)
