@@ -256,6 +256,7 @@ def KNN(train_df,test_df,new_df):
     modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
                                               metric='cosine', metric_params=None, n_jobs=1)
     modelknn.fit(X_KNN_train, y_train)
+
     # pred on test samples
     predKNN = modelknn.predict(X_test_train)
     print(classification_report(y_test,predKNN))
@@ -373,10 +374,10 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     predicted = model.predict(X_new)
 
     # # Choose the class with higher probability
-    new_df['prediction']=Y.columns[list(np.argmax(predicted, axis=1))]
+    new_df['predicted_{}'.format(MAX_NB_WORDS)]=Y.columns[list(np.argmax(predicted, axis=1))]
 
     # Create the performance report
     print(classification_report(new_df['y_true'], new_df['prediction'], target_names=Y.columns))
     return predicted
 
-pred=LSTM_model(file_data_subset_1000, file_data_test_1000, file_data_new,1000,90000,5,32)
+pred=LSTM_model(file_data_subset_1000, file_data_test_1000, file_data_new,1000,80000,8,32)
