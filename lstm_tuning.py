@@ -333,7 +333,7 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     model = Sequential()
     model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
     model.add(SpatialDropout1D(0.2))
-    model.add(LSTM(100))
+    model.add(LSTM(50))
     model.add(Dense(6, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
@@ -374,10 +374,10 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     predicted = model.predict(X_new)
 
     # # Choose the class with higher probability
-    new_df['predicted_{}'.format(MAX_NB_WORDS)]=Y.columns[list(np.argmax(predicted, axis=1))]
+    new_df['predicted_{}'.format(MAX_LEN)]=Y.columns[list(np.argmax(predicted, axis=1))]
 
     # Create the performance report
-    print(classification_report(new_df['y_true'], new_df['prediction'], target_names=Y.columns))
+    print(classification_report(new_df['y_true'], new_df['predicted_{}'.format(MAX_LEN)], target_names=Y.columns))
     return predicted
 
-pred=LSTM_model(file_data_subset_1000, file_data_test_1000, file_data_new,1000,80000,8,32)
+pred=LSTM_model(file_data_subset, file_data_test, file_data_new,500,10000,10,32)
