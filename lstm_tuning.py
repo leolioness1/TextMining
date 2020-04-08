@@ -115,13 +115,9 @@ stemmer = SnowballStemmer('portuguese')
 
 
 def clean_data(dataframe):
-    """
-    Function that a receives a list of strings and preprocesses it.
-    :param text_list: List of strings.
-    :param lemmatize: Tag to apply lemmatization if True.
-    :param stemmer: Tag to apply the stemmer if True.
-    """
+    
     processed_corpus = []
+    
     for i in range(len(dataframe)):
         text = dataframe['text'][i]
         #LOWERCASE TEXT
@@ -133,6 +129,7 @@ def clean_data(dataframe):
         #REMOVE TAGS
         text = BeautifulSoup(text).get_text()
         processed_corpus.append(text)
+        
     return processed_corpus
 
 
@@ -166,12 +163,15 @@ file_data_new.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesS
 file_data_new.insert(2,'predicted_500',value=None)
 file_data_new.insert(3,'predicted_1000',value=None)
 file_data_new.insert(4,'pred_KNN',value=None)
+file_data_new.insert(5,'pred_NB',value=None)
 
 ###file_data nd clean documents only has non-alpha characters and html removed##
 #to be used for language modelling retains most text info##
 
 def stem_stop_words (dataframe):
+    
     processed_corpus = []
+    
     for i in range(len(dataframe)):
         text = dataframe['text'][i]
         # REMOVE STOP WORDS
@@ -179,11 +179,13 @@ def stem_stop_words (dataframe):
         text = [stemmer.stem(word) for word in text if not word in stop]
         text = " ".join(text)
         processed_corpus.append(text)
+        
     return processed_corpus
 
 ###stem_file_data and stem_documents also has stemming and stopwords removed##
 #to be used for NaiveBayes etc retains less text info##
 def generate_stem_df(train_df,test_df,new_df):
+    
     stem_documents = stem_stop_words(train_df)
     stem_documents_test = stem_stop_words(test_df)
     stem_documents_new = stem_stop_words(new_df)
@@ -205,7 +207,9 @@ stem_file_data,stem_file_data_test,stem_file_data_new = generate_stem_df(file_da
 #to be used for NaiveBayes etc retains less text info##
 
 def lemma_stop_words (dataframe):
+    
     processed_corpus = []
+    
     for i in range(len(dataframe)):
         text = dataframe['text'][i]
         # REMOVE STOP WORDS
@@ -213,9 +217,11 @@ def lemma_stop_words (dataframe):
         text = [lemma.lemmatize(word) for word in text if not word in stop]
         text = " ".join(text)
         processed_corpus.append(text)
+        
     return processed_corpus
 
 def generate_lemma_df(train_df,test_df,new_df):
+    
     lemma_documents = lemma_stop_words(train_df)
     lemma_documents_test = lemma_stop_words(test_df)
     lemma_documents_new = lemma_stop_words(new_df)
@@ -233,66 +239,83 @@ def generate_lemma_df(train_df,test_df,new_df):
 
 lemma_file_data,lemma_file_data_test,lemma_file_data_new = generate_lemma_df(file_data_subset,file_data_test,file_data_new)
 
-# test = ['pg22801.txt','pg26103.txt','pg25641.txt','Furia Divina - Jose Rodrigues dos Santos.txt',
-#        'O Homem Duplicado - Jose Saramago.txt','UltimaHistoria.txt']pg22801.txt
-
+lemma_file_data_KNN,lemma_file_data_test_KNN,lemma_file_data_new_KNN = generate_lemma_df(file_data,file_data_test,file_data_new)
 
 ################## KNN ######################
 
-def KNN(train_df,test_df,new_df):
+def KNN(train_df,test_df):
+    
     cv_KNN = CountVectorizer(
         max_df=0.8,
         max_features=1000,
-        ngram_range=(1,3) # only bigram (2,2)
+        ngram_range=(1,3)
     )
+        
+    tfidf_vectorizer = TfidfTransformer()
 
-    # X_KNN = cv_KNN.fit_transform(train_df['text'])
-    # y = np.array(train_df["author"])
-    # X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
+    X_KNN = tfidf_vectorizer.fit_transform(cv_KNN.fit_transform(train_df['text']))
 
-    X_KNN_train = cv_KNN.fit_transform(train_df['text'])
-    X_test_train = cv_KNN.fit_transform(test_df['text'])
+    y = np.array(train_df["author"])
 
-    modelknn = KNeighborsClassifier(n_neighbors=10, weights='distance', algorithm='brute', leaf_size=30, p=2,
+    X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
+
+    modelknn = KNeighborsClassifier(n_neighbors=5, weights='distance', algorithm='brute', leaf_size=30, p=2,
                                               metric='cosine', metric_params=None, n_jobs=1)
-    modelknn.fit(X_KNN_train, y_train)
-
-    # pred on test samples
-    predKNN = modelknn.predict(X_test_train)
+    modelknn.fit(X_train, y_train)
+    
+    cv_KNN_test = CountVectorizer(vocabulary = cv_KNN.vocabulary_)
+    X_KNN_new = tfidf_vectorizer.fit_transform(cv_KNN_test.fit_transform(test_df['text']))
+    
+    predKNN = modelknn.predict(X_test)
     print(classification_report(y_test,predKNN))
-    # pred on new samples
-    X_KNN_new = cv_KNN.fit_transform(new_df['text'])
+    
     predKNN_new = modelknn.predict(X_KNN_new)
-    new_df["pred_KNN"] = predKNN_new
-    print(classification_report(new_df['y_true'],predKNN_new))
+    test_df["pred_KNN"] = predKNN_new
+    print(classification_report(test_df['y_true'],predKNN_new))
+    
     return predKNN_new
 
-KNN(lemma_file_data,lemma_file_data_test, lemma_file_data_new)   #could change for stem dfs but worst results
+KNN(lemma_file_data_KNN,lemma_file_data_new_KNN)   #could change for stem dfs but worst results
 
 
 # ################ Naive Bayes #################
-# def NB(train_df,test_df):
-#     cv_NB = CountVectorizer(max_df=0.9)
-#     X_NB = cv_NB.fit_transform(train_df['text'])
-#     y = np.array(train_df["author"])
-#     X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.2, random_state = 42)
-#
-#     nb_classifier = MultinomialNB()
-#     # Fit the classifier to the training data
-#     nb_classifier.fit(X_train,y_train)
-#     X_NB_new = cv_NB.fit_transform(test_df['text'])
-#     # Create the predicted tags: pred
-#     predNB = nb_classifier.predict(X_test)
-#     print(classification_report(y_test,predNB))
-#     predNB_new = nb_classifier.predict(X_NB_new)
-#     file_data_test["pred_NB"] = predNB_new
-#     print(classification_report(file_data_test["y_true"],predNB_new))
-#     return predNB_new
-#
-# NB(lemma_file_data,lemma_file_data_test)
+
+def NB(train_df,test_df):
+    
+    cv_NB = CountVectorizer(
+        max_df=0.8,
+        max_features=1000,
+        ngram_range=(1,3)
+    )
+        
+    tfidf_vectorizer = TfidfTransformer()
+
+    X_NB = tfidf_vectorizer.fit_transform(cv_NB.fit_transform(train_df['text']))
+    
+    y = np.array(train_df["author"])
+    X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.2, random_state = 30, shuffle=True, stratify=y)
+
+    nb_classifier = MultinomialNB()
+   
+    nb_classifier.fit(X_train,y_train)
+    
+    cv_NB_test = CountVectorizer(vocabulary = cv_NB.vocabulary_)
+    X_NB_new = tfidf_vectorizer.fit_transform(cv_NB_test.fit_transform(test_df['text']))
+    
+    predNB = nb_classifier.predict(X_test)
+    print(classification_report(y_test,predNB))
+    
+    predNB_new = nb_classifier.predict(X_NB_new)
+    test_df["pred_NB"] = predNB_new
+    print(classification_report(test_df["y_true"],predNB_new))
+    
+    return predNB_new
+
+NB(lemma_file_data_KNN,lemma_file_data_new_KNN)
 
 
 #EMBEDDINGS
+
 def tokenize_corpus(corpus):
     tokens = [x.split() for x in corpus]
     return tokens
@@ -301,6 +324,7 @@ tokenized_corpus = tokenize_corpus(cleaned_documents)
 vocabulary = {word for doc in tokenized_corpus for word in doc}
 vocab_size = len(vocabulary)
 print(vocab_size)
+
 
 # The maximum number of words to be used. (most frequent) or could use whole vocab size
 def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
