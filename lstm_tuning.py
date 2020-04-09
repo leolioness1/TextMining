@@ -235,13 +235,13 @@ lemma_file_data_KNN,lemma_file_data_test_KNN,lemma_file_data_new_KNN = generate_
 ################## KNN ######################
 
 def KNN(train_df,test_df):
-
+    
     cv_KNN = CountVectorizer(
         max_df=0.8,
         max_features=1000,
         ngram_range=(1,3)
     )
-
+        
     tfidf_vectorizer = TfidfTransformer()
 
     X_KNN = tfidf_vectorizer.fit_transform(cv_KNN.fit_transform(train_df['text']))
@@ -253,56 +253,57 @@ def KNN(train_df,test_df):
     modelknn = KNeighborsClassifier(n_neighbors=5, weights='distance', algorithm='brute', leaf_size=30, p=2,
                                               metric='cosine', metric_params=None, n_jobs=1)
     modelknn.fit(X_train, y_train)
-
+    
     cv_KNN_test = CountVectorizer(vocabulary = cv_KNN.vocabulary_)
     X_KNN_new = tfidf_vectorizer.fit_transform(cv_KNN_test.fit_transform(test_df['text']))
-
+    
     predKNN = modelknn.predict(X_test)
     print(classification_report(y_test,predKNN))
-
+    
     predKNN_new = modelknn.predict(X_KNN_new)
-    test_df["pred_KNN"] = predKNN_new
+    file_data_new["pred_KNN"] = predKNN_new
     print(classification_report(test_df['y_true'],predKNN_new))
-
+    
     return predKNN_new
 
-KNN(lemma_file_data_KNN,lemma_file_data_new_KNN)   #could change for stem dfs but worst results
+KNN(lemma_file_data_KNN,lemma_file_data_new)   #could change for stem dfs but worst results
 
 
 # ################ Naive Bayes #################
 
 def NB(train_df,test_df):
-
+    
     cv_NB = CountVectorizer(
         max_df=0.8,
         max_features=1000,
         ngram_range=(1,3)
     )
-
+        
     tfidf_vectorizer = TfidfTransformer()
 
     X_NB = tfidf_vectorizer.fit_transform(cv_NB.fit_transform(train_df['text']))
-
+    
     y = np.array(train_df["author"])
     X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.2, random_state = 30, shuffle=True, stratify=y)
 
     nb_classifier = MultinomialNB()
-
+   
     nb_classifier.fit(X_train,y_train)
-
+    
     cv_NB_test = CountVectorizer(vocabulary = cv_NB.vocabulary_)
     X_NB_new = tfidf_vectorizer.fit_transform(cv_NB_test.fit_transform(test_df['text']))
-
+    
     predNB = nb_classifier.predict(X_test)
     print(classification_report(y_test,predNB))
-
+    
     predNB_new = nb_classifier.predict(X_NB_new)
-    test_df["pred_NB"] = predNB_new
+    file_data_new["pred_NB"] = predNB_new
     print(classification_report(test_df["y_true"],predNB_new))
-
+    
     return predNB_new
 
-NB(lemma_file_data_KNN,lemma_file_data_new_KNN)
+NB(lemma_file_data_KNN,lemma_file_data_new)
+
 
 
 #EMBEDDINGS
