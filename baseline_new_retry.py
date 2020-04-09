@@ -86,7 +86,32 @@ exclude = set(string.punctuation)
 lemma = WordNetLemmatizer()
 stemmer = SnowballStemmer('portuguese')
 
+vocab_size = 5000
+embedding_dim = 64
+max_length = 200
+trunc_type = 'post'
+padding_type = 'post'
+oov_tok = '<OOV>'
+training_portion = .8
 
+label_tokenizer = Tokenizer()
+label_tokenizer.fit_on_texts(labels)
+
+training_label_seq = np.array(label_tokenizer.texts_to_sequences(train_labels))
+validation_label_seq = np.array(label_tokenizer.texts_to_sequences(validation_labels))
+
+model = tf.keras.Sequential([
+    # Add an Embedding layer expecting input vocab of size 5000, and output embedding dimension of size 64 we set at the top
+    tf.keras.layers.Embedding(vocab_size, embedding_dim),
+    tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(embedding_dim)),
+#    tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)),
+    # use ReLU in place of tanh function since they are very good alternatives of each other.
+    tf.keras.layers.Dense(embedding_dim, activation='relu'),
+    # Add a Dense layer with 6 units and softmax activation.
+    # When we have multiple outputs, softmax convert outputs layers into a probability distribution.
+    tf.keras.layers.Dense(6, activation='softmax')
+])
+model.summary()
 def clean_data(dataframe):
     """
     Function that a receives a list of strings and preprocesses it.

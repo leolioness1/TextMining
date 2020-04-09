@@ -212,6 +212,7 @@ def KNN(train_df,test_df):
     predKNN_new = modelknn.predict(X_KNN_new)
     file_data_test["pred_KNN"] = predKNN_new
     print(classification_report(file_data_test['y_true'],predKNN_new))
+
     return predKNN_new
 
 KNN(lemma_file_data,lemma_file_data_test)
