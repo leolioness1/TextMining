@@ -147,10 +147,11 @@ y_test_1000 = np.array(file_data_1000['author'].loc[file_data_1000.title.isin(te
 cleaned_documents_new=clean_data(file_data_new)
 update_df(file_data_new,cleaned_documents_new)
 file_data_new.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
-file_data_new.insert(2,'predicted_500',value=None)
-file_data_new.insert(3,'predicted_1000',value=None)
-file_data_new.insert(4,'pred_KNN',value=None)
-file_data_new.insert(5,'pred_NB',value=None)
+file_data_new.insert(2,'predicted',value=None)
+file_data_new.insert(3,'pred_KNN',value=None)
+file_data_new.insert(4,'pred_NB',value=None)
+file_data_new.insert(5,'predicted_500',value=None)
+file_data_new.insert(6,'predicted_1000',value=None)
 
 
 #undersampling to balance the dataset
@@ -170,7 +171,7 @@ balanced_test = balancing_undersampling(file_data_test)
 balanced_train_1000=balancing_undersampling(file_data_subset_1000)
 balanced_test_1000 = balancing_undersampling(file_data_test_1000)
 
-#ful dataset
+#full dataset balancing
 balanced=balancing_undersampling(file_data)
 balanced_1000= balancing_undersampling(file_data_1000)
 
@@ -388,11 +389,11 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     #v1
     model = Sequential()
     model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
-    model.add(LSTM(100))
-    #v2
-    # model.add(SpatialDropout1D(0.2))
-    #model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
 
+    #v2
+    model.add(SpatialDropout1D(0.2))
+    #model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
+    model.add(LSTM(50))
     # #v3
     # # Add an Embedding layer expecting input , and output embedding dimension of size 100 we set at the top
     # model.add(tf.keras.layers.Embedding(MAX_NB_WORDS,embedding_dim,input_length=X.shape[1]))
@@ -406,15 +407,15 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     model.add(Dense(6, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,validation_data=(X_test,y_test),callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
+    history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,validation_data=(X_test,y_test),callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.05)])
 
     # accuracy_history = history.history['acc']
     # val_accuracy_history = history.history['val_acc']
     # print( "Last training accuracy: " + str(accuracy_history[-1]) + ", last validation accuracy: " + str(val_accuracy_history[-1]))
 
     # save the model to disk
-    filename = 'lstm_model_{}_{}.pkl'.format(MAX_LEN,datetime.datetime.today().strftime("%d_%m_%Y_%H_%M_%S"))
-    pickle.dump(model, open(filename, 'wb'))
+    # filename = 'lstm_model_{}_{}.pkl'.format(MAX_LEN,datetime.datetime.today().strftime("%d_%m_%Y_%H_%M_%S"))
+    # pickle.dump(model, open(filename, 'wb'))
     # # # load the model from disk
     # model_name='lstm_model_1000_06_04_2020_11_50_20.pkl'
     # loaded_model = pickle.load(open(model_name, 'rb'))
@@ -440,15 +441,15 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     predicted = model.predict(X_new)
 
     # # Choose the class with higher probability
-    new_df['predicted_500']=Y.columns[list(np.argmax(predicted, axis=1))]
+    new_df['predicted']=Y.columns[list(np.argmax(predicted, axis=1))]
 
     # Create the performance report
-    print(classification_report(new_df['y_true'], new_df['predicted_500'], target_names=Y.columns))
+    print(classification_report(new_df['y_true'],Y.columns[list(np.argmax(predicted, axis=1))], target_names=Y.columns))
     return predicted
 
 #with 1000 sample dataset
 # pred=LSTM_model(balanced_train_1000, balanced_test_1000, file_data_new,1000,30000,10,32)
-#with 500 sample dataset
-pred2=LSTM_model(file_data_subset, file_data_test, file_data_new,1000,100000,10,32)
 
+#with 500 sample dataset, parameters for the results presented in the report
+pred=LSTM_model(file_data_subset, file_data_test, file_data_new,1000,100000,10,40)
 
