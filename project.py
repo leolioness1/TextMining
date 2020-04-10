@@ -189,7 +189,7 @@ all_words = ' '.join(file_data['text']).split()
 freq = pd.Series(all_words).value_counts()
 freq[:25]
 
-
+"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin"
 ########## n grams ##################
 
 def get_top_n_grams(corpus, top_k, n):

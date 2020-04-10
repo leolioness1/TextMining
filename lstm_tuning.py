@@ -13,10 +13,8 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report
-# run this if not installed: python -m spacy download pt_core_news_sm
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Sequential
@@ -29,19 +27,15 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder
-from sklearn.pipeline import Pipeline
-# for windows10 run: pip install torch==1.4.0+cpu torchvision==0.5.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-from torch.autograd import Variable
-import torch.nn.functional as F
-import torch
 import pickle
 import warnings
 import datetime
-
 from sklearn.model_selection import StratifiedKFold
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+
+#import the train scripts
 root = os.getcwd() + '\\Corpora\\train'
 
 file_name_and_text={}
@@ -60,7 +54,7 @@ for file in os.listdir(root):
 file_data_raw = (pd.DataFrame.from_dict(file_name_and_text, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'author', 0: 'text'}))
 
-
+#import the test scripts
 root_test = os.getcwd() + '\\Corpora\\test'
 
 file_name_and_text_new={}
@@ -79,6 +73,7 @@ for file in os.listdir(root_test):
 file_data_new = (pd.DataFrame.from_dict(file_name_and_text_new, orient='index')
              .reset_index().rename(index = str, columns = {'index': 'number_of_words', 0: 'text'}))
 
+#split the titles into n word samples
 
 def split_strings_n_words(df, n):
     new_df = pd.concat([pd.Series(row['author'], [' '.join(row['text'].split()[x:x + n]) for x in range(0, len(row['text'].split()), n)]) for _, row in df.iterrows()]).reset_index()
@@ -93,15 +88,17 @@ def split_strings_n_words(df, n):
 file_data = split_strings_n_words(file_data_raw,500)
 file_data_1000 = split_strings_n_words(file_data_raw,1000)
 
-file_data.groupby(['author','title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
-file_data_1000.groupby(['author','title']).count().to_csv("number_of_1000_samples_per_title_per_author.csv")
+#uncomment to check the imbalanced sampling
+# file_data.groupby(['author','title']).count().to_csv("number_of_500_samples_per_title_per_author.csv")
+# file_data_1000.groupby(['author','title']).count().to_csv("number_of_1000_samples_per_title_per_author.csv")
 
+#initialise preprocessing parameters
 stop = set(stopwords.words('portuguese'))
 exclude = set(string.punctuation)
 lemma = WordNetLemmatizer()
 stemmer = SnowballStemmer('portuguese')
 
-
+#basic preprocessing function for NN
 def clean_data(dataframe):
 
     processed_corpus = []
@@ -126,6 +123,7 @@ def update_df(dataframe, cleaned_documents):
 
 #create test and train samples for both 500 word samples split and 1000 word sample split
 #these titles were chosen because their wordcount corresponded to aprox. 10% of the words for each author
+
 test=['pg22801.txt','pg27364.txt','pg25641.txt','O Setimo Selo - Jose Rodrigues dos Santos.txt','O Homem Duplicado - Jose Saramago.txt','ABelaHistoria.txt']
 
 
@@ -145,7 +143,7 @@ file_data_test_1000 = file_data_1000.loc[file_data_1000.title.isin(test)].reset_
 y_train_1000 = np.array(file_data_1000['author'].loc[~file_data_1000.title.isin(test)])
 y_test_1000 = np.array(file_data_1000['author'].loc[file_data_1000.title.isin(test)])
 
-#new data to predict on
+#new data to predict on including tentative labels obtained from googling the text excerpts to be predicted
 cleaned_documents_new=clean_data(file_data_new)
 update_df(file_data_new,cleaned_documents_new)
 file_data_new.insert(1,'y_true',['JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos','JoseSaramago','AlmadaNegreiros','LuisaMarquesSilva','EcaDeQueiros','CamiloCasteloBranco','JoseRodriguesSantos'])
@@ -154,6 +152,27 @@ file_data_new.insert(3,'predicted_1000',value=None)
 file_data_new.insert(4,'pred_KNN',value=None)
 file_data_new.insert(5,'pred_NB',value=None)
 
+
+#undersampling to balance the dataset
+def balancing_undersampling(df):
+    print("Before balanced resampling:")
+    print(df.groupby(['author'])['text'].count())
+    g = df.groupby('author')
+    balanced_df = pd.DataFrame(g.apply(lambda x: x.sample(g.size().min()))).reset_index(drop=True)
+    print("After balanced resampling:")
+    print(balanced_df.groupby(['author'])['text'].count())
+    return balanced_df
+
+#using holdout test and train
+balanced_train=balancing_undersampling(file_data_subset)
+balanced_test = balancing_undersampling(file_data_test)
+
+balanced_train_1000=balancing_undersampling(file_data_subset_1000)
+balanced_test_1000 = balancing_undersampling(file_data_test_1000)
+
+#ful dataset
+balanced=balancing_undersampling(file_data)
+balanced_1000= balancing_undersampling(file_data_1000)
 
 ###file_data nd clean documents only has non-alpha characters and html removed##
 #to be used for language modelling retains most text info##
@@ -227,19 +246,20 @@ def generate_lemma_df(train_df,test_df,new_df):
     return lemma_file_data,lemma_file_data_test,lemma_file_data_new
 
 #uses 500 word sample split by default
-
+#using holdout train test
 lemma_file_data,lemma_file_data_test,lemma_file_data_new = generate_lemma_df(file_data_subset,file_data_test,file_data_new)
-
-lemma_file_data_KNN,lemma_file_data_test_KNN,lemma_file_data_new_KNN = generate_lemma_df(file_data,file_data_test,file_data_new)
+#using full dataset
+lemma_file_data_KNN,lemma_file_data_test,lemma_file_data_new = generate_lemma_df(file_data,file_data_test,file_data_new)
+#using full balanced dataset
+lemma_file_data_balanced,lemma_file_data_test,lemma_file_data_new =generate_lemma_df(balanced,file_data_test,file_data_new)
 
 ################## KNN ######################
 
-def KNN(train_df,test_df):
-
+def KNN(train_df, test_df):
     cv_KNN = CountVectorizer(
         max_df=0.8,
         max_features=1000,
-        ngram_range=(1,3)
+        ngram_range=(1, 3)
     )
 
     tfidf_vectorizer = TfidfTransformer()
@@ -248,35 +268,35 @@ def KNN(train_df,test_df):
 
     y = np.array(train_df["author"])
 
-    X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size = 0.2, random_state = 42)
+    X_train, X_test, y_train, y_test = train_test_split(X_KNN, y, test_size=0.2, random_state=42)
 
     modelknn = KNeighborsClassifier(n_neighbors=5, weights='distance', algorithm='brute', leaf_size=30, p=2,
-                                              metric='cosine', metric_params=None, n_jobs=1)
+                                    metric='cosine', metric_params=None, n_jobs=1)
     modelknn.fit(X_train, y_train)
 
-    cv_KNN_test = CountVectorizer(vocabulary = cv_KNN.vocabulary_)
+    cv_KNN_test = CountVectorizer(vocabulary=cv_KNN.vocabulary_)
     X_KNN_new = tfidf_vectorizer.fit_transform(cv_KNN_test.fit_transform(test_df['text']))
 
     predKNN = modelknn.predict(X_test)
-    print(classification_report(y_test,predKNN))
+    print(classification_report(y_test, predKNN))
 
     predKNN_new = modelknn.predict(X_KNN_new)
-    test_df["pred_KNN"] = predKNN_new
-    print(classification_report(test_df['y_true'],predKNN_new))
+    file_data_new["pred_KNN"] = predKNN_new
+    print(classification_report(test_df['y_true'], predKNN_new))
 
     return predKNN_new
 
-KNN(lemma_file_data_KNN,lemma_file_data_new_KNN)   #could change for stem dfs but worst results
+#using full balanced dataset and 20/80 test/train split
+KNN(lemma_file_data_balanced, lemma_file_data_new)  # could change for stem dfs but worst results
 
 
 # ################ Naive Bayes #################
 
-def NB(train_df,test_df):
-
+def NB(train_df, test_df):
     cv_NB = CountVectorizer(
         max_df=0.8,
         max_features=1000,
-        ngram_range=(1,3)
+        ngram_range=(1, 3)
     )
 
     tfidf_vectorizer = TfidfTransformer()
@@ -284,101 +304,110 @@ def NB(train_df,test_df):
     X_NB = tfidf_vectorizer.fit_transform(cv_NB.fit_transform(train_df['text']))
 
     y = np.array(train_df["author"])
-    X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size = 0.2, random_state = 30, shuffle=True, stratify=y)
+    X_train, X_test, y_train, y_test = train_test_split(X_NB, y, test_size=0.2, random_state=42, shuffle=True,
+                                                        stratify=y) #30
 
     nb_classifier = MultinomialNB()
 
-    nb_classifier.fit(X_train,y_train)
+    nb_classifier.fit(X_train, y_train)
 
-    cv_NB_test = CountVectorizer(vocabulary = cv_NB.vocabulary_)
+    cv_NB_test = CountVectorizer(vocabulary=cv_NB.vocabulary_)
     X_NB_new = tfidf_vectorizer.fit_transform(cv_NB_test.fit_transform(test_df['text']))
 
     predNB = nb_classifier.predict(X_test)
-    print(classification_report(y_test,predNB))
+    print(classification_report(y_test, predNB))
 
     predNB_new = nb_classifier.predict(X_NB_new)
-    test_df["pred_NB"] = predNB_new
-    print(classification_report(test_df["y_true"],predNB_new))
+    file_data_new["pred_NB"] = predNB_new
+    print(classification_report(test_df["y_true"], predNB_new))
 
     return predNB_new
 
-NB(lemma_file_data_KNN,lemma_file_data_new_KNN)
+#using full balanced dataset and 20/80 test/train split
+NB(lemma_file_data_balanced, lemma_file_data_new)
 
-
-#EMBEDDINGS
+#EMBEDDING size tune
 
 def tokenize_corpus(corpus):
     tokens = [x.split() for x in corpus]
     return tokens
 
-tokenized_corpus = tokenize_corpus(cleaned_documents)
+tokenized_corpus = tokenize_corpus(balanced_test.text)
 vocabulary = {word for doc in tokenized_corpus for word in doc}
-vocab_size = len(vocabulary)
-print(vocab_size)
+print("corpora vocab length:{}".format(len(vocabulary)))
 
-random_seed = 42
+
 oov_tok = '<OOV>'
 trunc_type = 'post'
 padding_type = 'post'
 embedding_dim=100
-# The maximum number of words to be used. (most frequent) or could use whole vocab size
+#set random seeds to obtain more or less reproducible results
+random_seed=42
+tf.random.set_seed(random_seed)
+random.seed(random_seed)
+np.random.seed(random_seed)
+
+#LSTM model definition
+
 def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
-    tf.random.set_seed(random_seed)
-    random.seed(random_seed)
-    np.random.seed(random_seed)
-    tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True, oov_token=oov_tok) # The maximum number of words to be used. (most frequent) or could use whole vocab size
+
+    tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True) # The maximum number of words to be used. (most frequent) or could use whole vocab size
     tokenizer.fit_on_texts(train_df.text.values)
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
 
     # Change text for numerical ids and pad
     X = tokenizer.texts_to_sequences(train_df.text)
-    X = pad_sequences(X, maxlen=MAX_LEN,padding=padding_type, truncating=trunc_type)
+    X = pad_sequences(X, maxlen=MAX_LEN) #max length of texts, used for padding
     print('Shape of data tensor:', X.shape)
     Y = pd.get_dummies(train_df['author'])
     y_test =pd.get_dummies(test_df['author'].loc[test_df.title.isin(test)])
+
+    X_train, X_dev, y_train, y_dev = train_test_split(X, Y, test_size=0.01, random_state=random_seed, stratify=Y) #test_size held small as holdout used instead
+
     # Change text for numerical ids and pad
     X_test = tokenizer.texts_to_sequences(test_df.text)
     X_test = pad_sequences(X_test, maxlen=MAX_LEN)
-    #X_train, X_dev, y_train, y_dev = train_test_split(X, Y, test_size=0.1, random_state=random_seed, stratify=Y)
-    # print(X_train.shape, y_train.shape)
-    # print(X_dev.shape, y_dev.shape)
+    print(X_train.shape, y_train.shape)
+    print(X_dev.shape, y_dev.shape)
 
     # kfold_splits=10
-    # # Instantiate the cross validator
+    # # # Instantiate the cross validator
     # skf = StratifiedKFold(n_splits=kfold_splits, shuffle=True,random_state=7)
-    # # Loop through the indices the split() method returns
+    #
+    # # # Loop through the indices the split() method returns
+    #
     # for index, (train_indices, val_indices) in enumerate(skf.split(X, Y.values.argmax(1))):
     #     print
     #     "Training on fold " + str(index + 1) + "/10..."
     #     # Generate batches from indices
     #     X_train, X_dev = X[train_indices], X[val_indices]
     #     y_train, y_dev = Y[train_indices], Y[val_indices]
-    #     # Clear model, and create it
-    # model = Sequential()
-    # model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
+
+    # Clear model, and create it
+    #v1
+    model = Sequential()
+    model.add(Embedding(input_dim=MAX_NB_WORDS, output_dim=100, input_length=X.shape[1]))
+    model.add(LSTM(100))
+    #v2
     # model.add(SpatialDropout1D(0.2))
-    # model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
-    # model.add(Dense(6, activation='softmax'))
-    # model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    model = tf.keras.Sequential([
-        # Add an Embedding layer expecting input , and output embedding dimension of size 100 we set at the top
-        tf.keras.layers.Embedding(MAX_NB_WORDS, embedding_dim),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(embedding_dim)),
-        #    tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)),
-        # use ReLU in place of tanh function since they are very good alternatives of each other.
-        tf.keras.layers.Dense(embedding_dim, activation='relu'),
-        # Add a Dense layer with 6 units and softmax activation.
-        # When we have multiple outputs, softmax convert outputs layers into a probability distribution.
-        tf.keras.layers.Dense(6, activation='softmax')
-    ])
-    model.summary()
+    #model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
+
+    # #v3
+    # # Add an Embedding layer expecting input , and output embedding dimension of size 100 we set at the top
+    # model.add(tf.keras.layers.Embedding(MAX_NB_WORDS,embedding_dim,input_length=X.shape[1]))
+    # model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(embedding_dim)))
+    # # use ReLU in place of tanh function since they are very good alternatives of each other.
+    # model.add(tf.keras.layers.Dense(embedding_dim, activation='relu'))
+
+    #output layer
+    # Add a Dense layer with 6 units and softmax activation.When we have multiple outputs, softmax convert outputs layers into a probability distribution.
+
+    model.add(Dense(6, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    # Debug message I guess
-    # print "Training new iteration on " + str(xtrain.shape[0]) + " training samples, " + str(xval.shape[0]) + " validation samples, this may be a while..."
+    history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,validation_data=(X_test,y_test),callbacks=[EarlyStopping(monitor='loss', patience=3, min_delta=0.01)])
 
-    history = model.fit(X, Y, epochs=epochs, batch_size=batch_size,validation_data=(X_test,y_test))
     # accuracy_history = history.history['acc']
     # val_accuracy_history = history.history['val_acc']
     # print( "Last training accuracy: " + str(accuracy_history[-1]) + ", last validation accuracy: " + str(val_accuracy_history[-1]))
@@ -390,8 +419,7 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
     # model_name='lstm_model_1000_06_04_2020_11_50_20.pkl'
     # loaded_model = pickle.load(open(model_name, 'rb'))
     # evaluate the model
-    train_acc = model.evaluate(X, Y, verbose=0)
-
+    train_acc = model.evaluate(X_train, y_train, verbose=0)
 
     test_acc = model.evaluate(X_test, y_test, verbose=0)
     print('Train set\n  Loss: {:0.3f}\n  Accuracy: {:0.3f}'.format(train_acc[0],train_acc[1]))
@@ -410,13 +438,17 @@ def LSTM_model(train_df,test_df,new_df,MAX_LEN,MAX_NB_WORDS,epochs,batch_size):
 
     # Use the model to predict on new data
     predicted = model.predict(X_new)
-    predicted_df = pd.DataFrame(data =predicted,columns=Y.columns)
+
     # # Choose the class with higher probability
-    new_df['predicted_{}'.format(MAX_LEN)]=Y.columns[list(np.argmax(predicted, axis=1))]
+    new_df['predicted_500']=Y.columns[list(np.argmax(predicted, axis=1))]
 
     # Create the performance report
-    print(classification_report(new_df['y_true'], Y.columns[list(np.argmax(predicted, axis=1))], target_names=Y.columns))
-    return predicted_df
+    print(classification_report(new_df['y_true'], new_df['predicted_500'], target_names=Y.columns))
+    return predicted
 
-pred=LSTM_model(file_data_subset, file_data_test, file_data_new,1000,50000,10,32)
+#with 1000 sample dataset
+# pred=LSTM_model(balanced_train_1000, balanced_test_1000, file_data_new,1000,30000,10,32)
+#with 500 sample dataset
+pred2=LSTM_model(file_data_subset, file_data_test, file_data_new,1000,100000,10,32)
+
 
