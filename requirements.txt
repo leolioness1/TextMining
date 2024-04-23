@@ -65,7 +65,7 @@ monotonic==1.5
 more-itertools==8.2.0
 multiprocess==0.70.9
 murmurhash==1.0.2
-nbconvert==5.6.1
+nbconvert==6.5.1
 nbformat==5.0.4
 nltk==3.4.5
 nose2==0.9.2
