@@ -85,7 +85,7 @@ polygot==0.1
 preshed==3.0.2
 prometheus-client==0.7.1
 prompt-toolkit==3.0.3
-protobuf==3.11.3
+protobuf==3.18.3
 psutil==5.7.0
 pt-core-news-sm==2.2.5
 ptbr-postag==0.7
